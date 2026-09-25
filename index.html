@@ -1273,7 +1273,8 @@ input,textarea,select,button{
 
 <!-- ============ 信件新增/编辑：底部抽屉（移动）/ 居中弹窗（桌面） ============ -->
 <div id="sheetMask" class="sheet-mask hidden"></div>
-<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+<!-- 初始必须带 hidden（display:none）：否则桌面端它虽透明，仍会挡住页面中心区域的点击 -->
+<div id="sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="sheet-handle"></div>
   <div class="sheet-head">
     <h3 id="sheetTitle">写一封信</h3>
@@ -1306,7 +1307,8 @@ input,textarea,select,button{
 
 <!-- ============ 时间线新增：底部抽屉 ============ -->
 <div id="tlSheetMask" class="sheet-mask hidden"></div>
-<div id="tlSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="tlSheetTitle">
+<!-- 同信件抽屉：初始必须带 hidden，避免透明状态下遮挡页面点击 -->
+<div id="tlSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="tlSheetTitle">
   <div class="sheet-handle"></div>
   <div class="sheet-head">
     <h3 id="tlSheetTitle">记一笔</h3>
@@ -1839,10 +1841,11 @@ function openLetterSheet(letter){
   $('saveHint').textContent = '';
   $('sheetMask').classList.remove('hidden');
   $('sheet').classList.remove('hidden');
-  requestAnimationFrame(() => {
-    $('sheetMask').classList.add('show');
-    $('sheet').classList.add('show');
-  });
+  // 强制重排后再加 show：用同步 reflow 触发 CSS 过渡，
+  // 不依赖 requestAnimationFrame（后台标签页 rAF 会被暂停，会导致抽屉打不开）
+  void $('sheet').offsetWidth;
+  $('sheetMask').classList.add('show');
+  $('sheet').classList.add('show');
 
   // 桌面端自动聚焦标题（移动端不聚焦，避免键盘立刻弹出挡住界面）
   if (window.matchMedia('(min-width: 768px)').matches){
@@ -1992,10 +1995,10 @@ function openTimelineSheet(){
 
   $('tlSheetMask').classList.remove('hidden');
   $('tlSheet').classList.remove('hidden');
-  requestAnimationFrame(() => {
-    $('tlSheetMask').classList.add('show');
-    $('tlSheet').classList.add('show');
-  });
+  // 同步 reflow 触发过渡（同信件抽屉：不依赖 rAF）
+  void $('tlSheet').offsetWidth;
+  $('tlSheetMask').classList.add('show');
+  $('tlSheet').classList.add('show');
 }
 
 function closeTimelineSheet(){
@@ -2236,7 +2239,8 @@ function bindEvents(){
         initMap();
       } else if (target === 'promise'){
         showView('viewPromise');
-        if (!lastPromiseIndex && lastPromiseIndex !== 0) rollPromise();
+        // 首次进入自动抽一条（初始值为 -1，用显式判断而不是真值判断）
+        if (lastPromiseIndex === -1) rollPromise();
       }
     });
   });
