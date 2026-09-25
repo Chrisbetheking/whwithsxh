@@ -1,0 +1,225 @@
+<script>
+/* ============================================================
+   whwithsxh · 前端逻辑（三）
+   信件模块：列表 / 详情（信纸排版）/ 新增 / 编辑 / 删除
+   ------------------------------------------------------------
+   读写说明（与 RLS 对应）：
+   前端使用登录后的 session（JWT）调用 Supabase REST 接口，
+   数据库端的 RLS 策略只允许我们两个账号读写，因此：
+   - 未登录时调用会直接失败（前端也会拦在登录页）；
+   - 任何第三方拿到 publishable key 也无法读到信件内容。
+   ============================================================ */
+
+/** HTML 转义：信件/时间线内容是用户输入，渲染前必须转义，防止 HTML 注入 */
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** 取作者展示名 */
+function authorName(key){
+  return (PEOPLE[key] && PEOPLE[key].name) || '我们';
+}
+
+/* ------------------------------------------------------------
+   8. 信件列表
+   ------------------------------------------------------------ */
+async function loadLetters(){
+  const box = $('letterList');
+  box.innerHTML = '<div class="empty-tip">正在打开信箱…</div>';
+  $('letterEmpty').classList.add('hidden');
+
+  try {
+    // 按 created_at 倒序；只展示已发布的信
+    const { data, error } = await sb
+      .from('letters')
+      .select('id,author,title,content,created_at,updated_at,is_published')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    lettersCache = data || [];
+    renderLetters();
+  } catch (e){
+    box.innerHTML = '<div class="empty-tip">信件没能加载出来 🌧<br>请检查网络后重试</div>';
+  }
+}
+
+function renderLetters(){
+  const box = $('letterList');
+
+  if (!lettersCache.length){
+    box.innerHTML = '';
+    $('letterEmpty').classList.remove('hidden');
+    return;
+  }
+  $('letterEmpty').classList.add('hidden');
+
+  box.innerHTML = lettersCache.map(l => {
+    const raw = (l.content || '').trim();
+    // 预览：前 60 字（CSS 再以两行截断）
+    const preview = raw
+      ? esc(raw.slice(0, 60)) + (raw.length > 60 ? '…' : '')
+      : '（还没有内容）';
+
+    return '' +
+      '<article class="letter-card' + (l.author === 'songxinghe' ? ' from-song' : '') + '" data-id="' + l.id + '">' +
+        '<div class="letter-meta">' +
+          '<span class="letter-author">' + esc(authorName(l.author)) + '</span>' +
+          '<span class="letter-date">' + fmtISO(l.created_at) + '</span>' +
+        '</div>' +
+        '<h3 class="letter-title">' + esc(l.title || '无题') + '</h3>' +
+        '<p class="letter-preview">' + preview + '</p>' +
+      '</article>';
+  }).join('');
+}
+
+/** 列表点击：进入详情（事件委托，卡片数量变化也不用重新绑定）*/
+function onLetterListClick(e){
+  const card = e.target.closest('.letter-card');
+  if (!card) return;
+  openLetterDetail(card.dataset.id);
+}
+
+/* ------------------------------------------------------------
+   9. 信件详情（信纸排版）
+   ------------------------------------------------------------ */
+function openLetterDetail(id){
+  const letter = lettersCache.find(l => l.id === id);
+  if (!letter) return;
+  currentLetter = letter;
+  renderLetterDetail();
+  showView('viewLetterDetail');
+}
+
+function renderLetterDetail(){
+  const l = currentLetter;
+  if (!l) return;
+
+  $('paperTitle').textContent = l.title || '无题';
+  $('paperSub').textContent = '写自 ' + authorName(l.author);
+  // 用 textContent 写入正文：保留换行（CSS white-space:pre-wrap），且天然防注入
+  $('paperContent').textContent = (l.content || '').trim() || '（这封信还没有内容）';
+  // 底部：此信写于 XXXX年XX月XX日
+  $('paperFoot').textContent = '此信写于 ' + fmtISO(l.created_at);
+
+  // 长信滚动时回到顶部
+  $('paperBody').scrollTop = 0;
+}
+
+/* ------------------------------------------------------------
+   10. 写信 / 编辑信件（底部抽屉，桌面端为居中弹窗）
+   ------------------------------------------------------------ */
+function openLetterSheet(letter){
+  editingLetterId = letter ? letter.id : null;
+
+  $('sheetTitle').textContent = letter ? '编辑这封信' : '写一封信';
+  $('letterTitleInput').value = letter ? (letter.title || '') : '';
+  $('letterContentInput').value = letter ? (letter.content || '') : '';
+
+  // 新写信时默认作者=当前登录的人；编辑时用原作者
+  const author = letter ? letter.author : currentUser;
+  setSheetAuthor(author);
+
+  $('saveHint').textContent = '';
+  $('sheetMask').classList.remove('hidden');
+  $('sheet').classList.remove('hidden');
+  requestAnimationFrame(() => {
+    $('sheetMask').classList.add('show');
+    $('sheet').classList.add('show');
+  });
+
+  // 桌面端自动聚焦标题（移动端不聚焦，避免键盘立刻弹出挡住界面）
+  if (window.matchMedia('(min-width: 768px)').matches){
+    setTimeout(() => $('letterTitleInput').focus(), 320);
+  }
+}
+
+function closeLetterSheet(){
+  $('sheetMask').classList.remove('show');
+  $('sheet').classList.remove('show');
+  setTimeout(() => {
+    $('sheetMask').classList.add('hidden');
+    $('sheet').classList.add('hidden');
+  }, 300);
+}
+
+function setSheetAuthor(a){
+  sheetAuthor = (a === 'songxinghe') ? 'songxinghe' : 'wanghong';
+  $('authorWang').classList.toggle('active', sheetAuthor === 'wanghong');
+  $('authorSong').classList.toggle('active', sheetAuthor === 'songxinghe');
+}
+
+async function saveLetter(){
+  const title = $('letterTitleInput').value.trim();
+  const content = $('letterContentInput').value;
+  const hint = $('saveHint');
+
+  if (!title){
+    hint.textContent = '给这封信起个标题吧';
+    return;
+  }
+
+  const btn = $('saveLetterBtn');
+  btn.disabled = true;
+  hint.textContent = '正在保存…';
+
+  try {
+    let error;
+    if (editingLetterId){
+      // 编辑：更新已有信件（updated_at 由数据库触发器自动刷新）
+      ({ error } = await sb.from('letters')
+        .update({ author: sheetAuthor, title: title, content: content })
+        .eq('id', editingLetterId));
+    } else {
+      // 新增：写入 letters 表
+      ({ error } = await sb.from('letters')
+        .insert({ author: sheetAuthor, title: title, content: content, is_published: true }));
+    }
+
+    if (error) throw error;
+
+    closeLetterSheet();
+    showToast(editingLetterId ? '已更新 💌' : '已收进信箱 💌');
+
+    // 列表刷新
+    await loadLetters();
+
+    // 如果正在看这封信的详情，同步刷新内容
+    if (currentLetter){
+      const fresh = lettersCache.find(l => l.id === currentLetter.id);
+      if (fresh){ currentLetter = fresh; renderLetterDetail(); }
+    }
+  } catch (e){
+    hint.textContent = '保存失败，请检查网络后重试';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------
+   11. 删除信件
+   ------------------------------------------------------------ */
+async function deleteCurrentLetter(){
+  const l = currentLetter;
+  if (!l) return;
+  if (!confirm('确定要删除《' + (l.title || '无题') + '》吗？\n删掉就找不回来了。')) return;
+
+  try {
+    const { error } = await sb.from('letters').delete().eq('id', l.id);
+    if (error) throw error;
+
+    currentLetter = null;
+    showToast('已删除');
+    showView('viewLetters');
+    await loadLetters();
+  } catch (e){
+    showToast('删除失败，请稍后再试');
+  }
+}
+</script>

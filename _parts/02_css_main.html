@@ -1,0 +1,562 @@
+<style>
+/* ============================================================
+   二、主页
+   ============================================================ */
+#viewHome{
+  padding:calc(28px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom));
+  max-width:760px;
+  margin:0 auto;
+}
+
+.home-head{
+  text-align:center;
+  margin-bottom:26px;
+}
+
+.home-names{
+  font-size:15px;
+  letter-spacing:3px;
+  color:rgba(255,255,255,.9);
+  margin-bottom:14px;
+}
+
+/* 在一起天数大号倒计时 */
+.counter-box{
+  padding:24px 16px 20px;
+  border-radius:24px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+}
+
+.counter-label{
+  font-size:13px;
+  letter-spacing:4px;
+  color:rgba(255,255,255,.85);
+  margin-bottom:10px;
+}
+
+.counter-days{
+  font-size:34px;
+  font-weight:800;
+  letter-spacing:1px;
+  line-height:1.1;
+  text-shadow:0 3px 16px rgba(0,0,0,.18);
+}
+.counter-days .num{
+  font-size:64px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  margin-right:4px;
+  background:linear-gradient(180deg,#fff,#ffe3ef);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+/* 时/分/秒 精确计时 */
+.counter-hms{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  margin-top:12px;
+}
+.counter-hms .unit{
+  min-width:62px;
+  padding:8px 6px;
+  border-radius:12px;
+  background:rgba(255,255,255,.14);
+}
+.counter-hms .unit b{
+  display:block;
+  font-size:20px;
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+}
+.counter-hms .unit span{
+  font-size:11px;
+  color:rgba(255,255,255,.75);
+  letter-spacing:1px;
+}
+
+.counter-since{
+  margin-top:14px;
+  font-size:12px;
+  color:rgba(255,255,255,.72);
+  letter-spacing:1px;
+}
+
+/* ---------- 功能入口卡片 ---------- */
+.section-title{
+  margin:26px 4px 12px;
+  font-size:14px;
+  letter-spacing:3px;
+  color:rgba(255,255,255,.85);
+}
+
+.entry-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:14px;
+}
+
+.entry-card{
+  position:relative;
+  min-height:112px;
+  padding:18px 16px;
+  border-radius:var(--radius-card);
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  color:#fff;
+  text-align:left;
+  cursor:pointer;
+  transition:transform .18s,box-shadow .2s;
+}
+.entry-card:active{transform:scale(.97);}
+.entry-card .ico{font-size:28px;line-height:1;display:block;margin-bottom:10px;}
+.entry-card .name{font-size:16px;font-weight:700;letter-spacing:1px;display:block;}
+.entry-card .desc{font-size:12px;color:rgba(255,255,255,.75);margin-top:5px;display:block;line-height:1.5;}
+
+/* 退出登录 */
+.logout-row{
+  margin-top:26px;
+  text-align:center;
+}
+
+.logout-btn{
+  min-height:44px;
+  padding:0 28px;
+  border-radius:var(--radius-btn);
+  border:1px solid rgba(255,255,255,.5);
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:14px;
+  letter-spacing:2px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  transition:background .2s;
+}
+.logout-btn:active{background:rgba(255,255,255,.24);}
+
+/* ============================================================
+   三、子页面（信件 / 时间线 / 地图 / 约定）通用头部
+   ============================================================ */
+.sub-view{
+  padding:calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  max-width:760px;
+  margin:0 auto;
+}
+
+.sub-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.back-btn{
+  width:44px;
+  height:44px;                   /* 触控区 ≥ 44px */
+  flex:0 0 44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.14);
+  color:#fff;
+  font-size:20px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.back-btn:active{background:rgba(255,255,255,.26);}
+
+.sub-title{
+  flex:1;
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:2px;
+}
+
+.sub-action{
+  min-height:44px;
+  padding:0 16px;
+  border-radius:var(--radius-btn);
+  border:none;
+  background:#fff;
+  color:#d94f86;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:1px;
+  cursor:pointer;
+  white-space:nowrap;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+  transition:transform .15s;
+}
+.sub-action:active{transform:scale(.96);}
+
+/* 空状态 */
+.empty-tip{
+  margin:40px auto 0;
+  text-align:center;
+  font-size:14px;
+  color:rgba(255,255,255,.8);
+  line-height:2;
+}
+
+/* ============================================================
+   四、信件列表
+   ============================================================ */
+.letter-list{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.letter-card{
+  padding:18px;
+  border-radius:var(--radius-card);
+  background:rgba(255,255,255,.92);
+  color:var(--text);
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:transform .18s;
+  border-left:5px solid var(--pink);
+}
+.letter-card:active{transform:scale(.985);}
+.letter-card.from-song{border-left-color:var(--purple);}
+
+.letter-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+
+.letter-author{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:700;
+  padding:3px 10px;
+  border-radius:999px;
+  background:linear-gradient(135deg,rgba(255,107,157,.16),rgba(166,107,255,.16));
+  color:#b0437a;
+  letter-spacing:1px;
+}
+.letter-card.from-song .letter-author{color:#7a4fd0;}
+
+.letter-date{
+  font-size:12px;
+  color:var(--text-soft);
+  font-variant-numeric:tabular-nums;
+}
+
+.letter-title{
+  font-size:17px;
+  font-weight:700;
+  margin-bottom:8px;
+  letter-spacing:.5px;
+}
+
+/* 内容预览：前 60 字 + 两行截断 */
+.letter-preview{
+  font-size:14px;
+  line-height:1.7;
+  color:#6d5d6d;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  word-break:break-word;
+}
+
+/* ============================================================
+   五、信件详情（信纸样式）
+   ============================================================ */
+.paper-wrap{
+  display:flex;
+  justify-content:center;
+}
+
+.paper{
+  position:relative;
+  width:100%;
+  max-width:680px;                       /* 桌面最大 680px 居中 */
+  border-radius:var(--radius-card);
+  background:var(--paper);               /* 信纸米白 #FFF8F0 */
+  color:var(--text);
+  box-shadow:0 10px 40px rgba(120,60,90,.22);
+  overflow:hidden;
+}
+
+/* 顶部装饰性信头 */
+.paper-head{
+  position:relative;
+  padding:26px 28px 22px;
+  background:linear-gradient(135deg,rgba(255,107,157,.14),rgba(166,107,255,.14));
+  border-bottom:1px dashed rgba(180,120,150,.4);
+}
+.paper-head::after{                       /* 信头装饰线 */
+  content:"";
+  position:absolute;
+  left:28px;right:28px;bottom:11px;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(180,120,150,.45),transparent);
+}
+
+.paper-heart{
+  font-size:15px;
+  letter-spacing:6px;
+  text-align:center;
+  margin-bottom:10px;
+}
+
+.paper-title{
+  font-size:21px;
+  font-weight:800;
+  letter-spacing:1px;
+  text-align:center;
+  line-height:1.45;
+  word-break:break-word;
+}
+
+.paper-sub{
+  margin-top:10px;
+  font-size:12px;
+  text-align:center;
+  color:var(--text-soft);
+  letter-spacing:1px;
+}
+
+/* 信纸正文容器：长信内部滚动，不撑破页面 */
+.paper-body{
+  max-height:70vh;                       /* 移动端重点 */
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;      /* iOS 惯性滚动 */
+  padding:24px 28px 26px;
+}
+
+.paper-content{
+  font-size:16px;                        /* 移动端 16px */
+  line-height:1.8;
+  white-space:pre-wrap;                  /* 保留换行 */
+  word-break:break-word;
+  color:#4a3a4a;
+}
+
+/* 底部：此信写于 XXXX年XX月XX日 */
+.paper-foot{
+  padding:14px 28px calc(16px + env(safe-area-inset-bottom));
+  border-top:1px dashed rgba(180,120,150,.35);
+  text-align:right;
+  font-size:12px;
+  color:var(--text-soft);
+  background:rgba(255,255,255,.4);
+}
+
+.paper-actions{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  margin-top:16px;
+}
+
+.paper-actions button{
+  min-height:44px;
+  padding:0 22px;
+  border-radius:var(--radius-btn);
+  border:1px solid rgba(255,255,255,.45);
+  background:rgba(255,255,255,.16);
+  color:#fff;
+  font-size:14px;
+  letter-spacing:1px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.paper-actions button:active{background:rgba(255,255,255,.3);}
+
+/* ============================================================
+   六、底部抽屉 / 居中弹窗（新增 / 编辑信件）
+   ============================================================ */
+.sheet-mask{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  background:rgba(40,10,30,.45);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  opacity:0;
+  transition:opacity .25s;
+}
+.sheet-mask.show{opacity:1;}
+
+/* 移动端：底部抽屉，占屏高 70% */
+.sheet{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  z-index:90;
+  height:70vh;
+  height:70dvh;
+  display:flex;
+  flex-direction:column;
+  border-radius:22px 22px 0 0;
+  background:#fff;
+  color:var(--text);
+  box-shadow:0 -12px 44px rgba(80,20,60,.25);
+  transform:translateY(102%);
+  transition:transform .32s cubic-bezier(.22,.9,.3,1);
+}
+.sheet.show{transform:translateY(0);}
+
+.sheet-handle{
+  width:44px;
+  height:5px;
+  border-radius:999px;
+  background:#e6d5e6;
+  margin:10px auto 4px;
+  flex:0 0 auto;
+}
+
+.sheet-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 20px 12px;
+  flex:0 0 auto;
+}
+.sheet-head h3{font-size:17px;letter-spacing:1px;}
+
+.sheet-close{
+  width:44px;height:44px;                 /* 触控区 ≥ 44px */
+  margin-right:-10px;
+  border:none;
+  background:transparent;
+  color:#b090b0;
+  font-size:24px;
+  cursor:pointer;
+}
+
+.sheet-body{
+  flex:1 1 auto;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:0 20px 12px;
+}
+
+.sheet-foot{
+  flex:0 0 auto;
+  padding:12px 20px calc(16px + env(safe-area-inset-bottom));
+  border-top:1px solid #f0e6f0;
+}
+
+.field{margin-bottom:16px;}
+.field label{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  color:#8a6a8a;
+  margin-bottom:7px;
+  letter-spacing:1px;
+}
+
+.field input,
+.field textarea{
+  width:100%;
+  padding:13px 14px;
+  border-radius:12px;
+  border:1px solid #ecdcec;
+  background:#fdf9fd;
+  color:var(--text);
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.field textarea{
+  min-height:180px;
+  line-height:1.75;
+  resize:vertical;
+}
+.field input:focus,
+.field textarea:focus{
+  border-color:var(--pink);
+  box-shadow:0 0 0 3px rgba(255,107,157,.14);
+}
+
+.author-picker{display:flex;gap:10px;}
+.author-picker button{
+  flex:1;
+  min-height:46px;
+  border-radius:12px;
+  border:1px solid #ecdcec;
+  background:#fdf9fd;
+  color:#9a7a9a;
+  font-size:14px;
+  letter-spacing:1px;
+  cursor:pointer;
+  transition:all .2s;
+}
+.author-picker button.active{
+  border-color:transparent;
+  background:var(--grad);
+  color:#fff;
+  font-weight:700;
+  box-shadow:0 6px 16px rgba(255,107,157,.3);
+}
+
+.sheet-save{
+  width:100%;
+  height:50px;
+  border:none;
+  border-radius:var(--radius-btn);
+  background:var(--grad);
+  color:#fff;
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:3px;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(255,107,157,.32);
+  transition:transform .15s,opacity .2s;
+}
+.sheet-save:active{transform:scale(.98);}
+.sheet-save:disabled{opacity:.6;cursor:default;}
+
+.save-hint{
+  margin-top:9px;
+  min-height:18px;
+  font-size:12px;
+  text-align:center;
+  color:#c06090;
+}
+
+/* 桌面端：居中弹窗 */
+@media (min-width:768px){
+  .sheet{
+    left:50%;
+    right:auto;
+    bottom:auto;
+    top:50%;
+    width:min(600px,92vw);
+    height:auto;
+    max-height:82vh;
+    border-radius:20px;
+    transform:translate(-50%,-46%) scale(.96);
+    opacity:0;
+    transition:transform .28s,opacity .28s;
+    box-shadow:0 24px 70px rgba(80,20,60,.32);
+  }
+  .sheet.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+  .sheet-handle{display:none;}
+  .sheet-head{padding-top:18px;}
+  .sheet-foot{padding-bottom:20px;}
+}
+</style>

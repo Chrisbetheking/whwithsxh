@@ -1,0 +1,238 @@
+<body>
+
+<!-- 爱心飘落层（z-index:0，位于内容下层，pointer-events:none 不挡点击） -->
+<div id="heartsLayer" aria-hidden="true"></div>
+
+<!-- ============ 启动加载 ============ -->
+<div id="bootLoading">
+  <div class="spinner"></div>
+  <div>正在打开我们的空间…</div>
+</div>
+
+<!-- ============ 登录页 ============ -->
+<section id="viewLogin" class="view">
+  <div class="login-card">
+    <div class="login-heart">💗</div>
+    <h1 class="login-title">我们的私密空间</h1>
+    <p class="login-sub" id="loginSub"><span class="type-cursor"></span></p>
+
+    <!-- 只有一个密码输入框：登录时用同一个密码依次尝试两个邮箱 -->
+    <input id="loginInput" class="login-input" type="password" inputmode="text"
+           autocomplete="current-password" placeholder="请输入我们的密码" maxlength="64">
+
+    <button id="loginBtn" class="login-btn" type="button">进 入</button>
+
+    <p class="login-error" id="loginError">密码不正确，再试一次</p>
+    <p class="login-foot">王鸿 · 宋星禾 &nbsp;|&nbsp; 仅属于我们两个人</p>
+  </div>
+</section>
+
+<!-- ============ 主页 ============ -->
+<section id="viewHome" class="view hidden">
+  <div class="home-head">
+    <div class="home-names">王鸿 💗 宋星禾</div>
+
+    <!-- 在一起天数大号倒计时（每秒刷新） -->
+    <div class="counter-box">
+      <div class="counter-label">我们已经在一起</div>
+      <div class="counter-days"><span class="num" id="daysNum">0</span>天</div>
+      <div class="counter-hms">
+        <div class="unit"><b id="hoursNum">00</b><span>时</span></div>
+        <div class="unit"><b id="minutesNum">00</b><span>分</span></div>
+        <div class="unit"><b id="secondsNum">00</b><span>秒</span></div>
+      </div>
+      <div class="counter-since" id="sinceText">从 —— 开始</div>
+    </div>
+  </div>
+
+  <div class="section-title">我们要做的小事</div>
+  <div class="entry-grid">
+    <button class="entry-card" data-goto="letters" type="button">
+      <span class="ico">💌</span>
+      <span class="name">信件</span>
+      <span class="desc">写给对方的悄悄话</span>
+    </button>
+    <button class="entry-card" data-goto="timeline" type="button">
+      <span class="ico">🕰️</span>
+      <span class="name">时间线</span>
+      <span class="desc">我们走过的小脚印</span>
+    </button>
+    <button class="entry-card" data-goto="map" type="button">
+      <span class="ico">📍</span>
+      <span class="name">地图</span>
+      <span class="desc">成都 ↔ 自贡的距离</span>
+    </button>
+    <button class="entry-card" data-goto="promise" type="button">
+      <span class="ico">🌙</span>
+      <span class="name">约定</span>
+      <span class="desc">未来想做的小约定</span>
+    </button>
+  </div>
+
+  <div class="logout-row">
+    <button id="logoutBtn" class="logout-btn" type="button">退出登录</button>
+  </div>
+</section>
+
+<!-- ============ 信件列表 ============ -->
+<section id="viewLetters" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">信件</h2>
+    <button id="newLetterBtn" class="sub-action" type="button">+ 写信</button>
+  </div>
+  <div id="letterList" class="letter-list"></div>
+  <div id="letterEmpty" class="empty-tip hidden">
+    还没有信呢<br>点右上角「+ 写信」，写下第一句吧
+  </div>
+</section>
+
+<!-- ============ 信件详情 ============ -->
+<section id="viewLetterDetail" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back="letters" type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">读信</h2>
+    <button id="editLetterBtn" class="sub-action" type="button">编辑</button>
+  </div>
+
+  <div class="paper-wrap">
+    <article class="paper">
+      <!-- 顶部装饰性信头 -->
+      <header class="paper-head">
+        <div class="paper-heart">♥ ♥ ♥</div>
+        <h3 class="paper-title" id="paperTitle">标题</h3>
+        <div class="paper-sub" id="paperSub">写自 ——</div>
+      </header>
+      <!-- 正文容器：max-height 70vh + 内部滚动，长信不撑破页面 -->
+      <div class="paper-body" id="paperBody">
+        <div class="paper-content" id="paperContent"></div>
+      </div>
+      <!-- 底部：此信写于 XXXX年XX月XX日 -->
+      <footer class="paper-foot" id="paperFoot">此信写于 ——</footer>
+    </article>
+  </div>
+
+  <div class="paper-actions">
+    <button id="deleteLetterBtn" type="button">删除这封信</button>
+  </div>
+</section>
+
+<!-- ============ 时间线 ============ -->
+<section id="viewTimeline" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">时间线</h2>
+    <button id="newTimelineBtn" class="sub-action" type="button">+ 记录</button>
+  </div>
+  <div id="timelineList" class="timeline"></div>
+  <div id="timelineEmpty" class="empty-tip hidden">
+    时间线还是空的<br>点右上角「+ 记录」，写下我们的第一天
+  </div>
+</section>
+
+<!-- ============ 地图 ============ -->
+<section id="viewMap" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">我们的距离</h2>
+  </div>
+
+  <div id="mapCard">
+    <div id="loveMap"></div>
+  </div>
+
+  <div class="distance-box">
+    <div class="distance-num" id="distanceNum">计算中…</div>
+    <div class="distance-tip" id="distanceTip">成都和自贡之间，是我们想念的路线</div>
+    <div class="city-row">
+      <span>王鸿 · 成都</span>
+      <span>宋星禾 · 自贡</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 随机约定 ============ -->
+<section id="viewPromise" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">未来小约定</h2>
+  </div>
+
+  <div class="promise-card">
+    <span class="promise-icon">🌙</span>
+    <div class="promise-text" id="promiseText">点一下，看看今天抽到哪个小约定</div>
+    <button id="promiseBtn" class="promise-btn" type="button">换 一 个</button>
+    <div class="promise-count" id="promiseCount"></div>
+  </div>
+</section>
+
+<!-- ============ 信件新增/编辑：底部抽屉（移动）/ 居中弹窗（桌面） ============ -->
+<div id="sheetMask" class="sheet-mask hidden"></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3 id="sheetTitle">写一封信</h3>
+    <button id="sheetClose" class="sheet-close" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="sheet-body">
+    <div class="field">
+      <label>写信人</label>
+      <div class="author-picker">
+        <button type="button" id="authorWang" data-author="wanghong" class="active">王鸿</button>
+        <button type="button" id="authorSong" data-author="songxinghe">宋星禾</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>标题</label>
+      <input id="letterTitleInput" type="text" maxlength="80" placeholder="给这封信起个名字">
+    </div>
+    <div class="field">
+      <label>内容</label>
+      <textarea id="letterContentInput" maxlength="20000" placeholder="慢慢写，不着急…"></textarea>
+    </div>
+  </div>
+
+  <div class="sheet-foot">
+    <button id="saveLetterBtn" class="sheet-save" type="button">保 存</button>
+    <div class="save-hint" id="saveHint"></div>
+  </div>
+</div>
+
+<!-- ============ 时间线新增：底部抽屉 ============ -->
+<div id="tlSheetMask" class="sheet-mask hidden"></div>
+<div id="tlSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="tlSheetTitle">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3 id="tlSheetTitle">记一笔</h3>
+    <button id="tlSheetClose" class="sheet-close" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="sheet-body">
+    <div class="field">
+      <label>日期</label>
+      <input id="tlDateInput" type="date">
+    </div>
+    <div class="field">
+      <label>标题</label>
+      <input id="tlTitleInput" type="text" maxlength="80" placeholder="发生了什么？">
+    </div>
+    <div class="field">
+      <label>描述（可留空）</label>
+      <textarea id="tlDescInput" maxlength="2000" style="min-height:110px" placeholder="想多写一点就写～"></textarea>
+    </div>
+  </div>
+
+  <div class="sheet-foot">
+    <button id="saveTimelineBtn" class="sheet-save" type="button">保 存</button>
+    <div class="save-hint" id="tlSaveHint"></div>
+  </div>
+</div>
+
+<!-- 轻提示 -->
+<div id="toast"></div>
+
+<!-- Leaflet 地图库 -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Supabase 官方 JS SDK（用 UMD 版本，直接挂到 window.supabase） -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>

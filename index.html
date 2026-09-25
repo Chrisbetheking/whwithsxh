@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 移动端重点：禁止缩放，保证 1:1 布局 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#FF6B9D">
+<title>我们的私密空间 · 王鸿 &amp; 宋星禾</title>
+
+<!-- Leaflet 地图样式（OpenStreetMap 免费瓦片） -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+/* ============================================================
+   whwithsxh · 情侣私密纪念页
+   配色：主色渐变 #FF6B9D → #A66BFF
+   结构：登录页 → 主页 → 信件 / 时间线 / 地图 / 约定
+   ============================================================ */
+
+/* ---------- 全局变量 ---------- */
+:root{
+  --pink:#FF6B9D;
+  --purple:#A66BFF;
+  --grad:linear-gradient(135deg,#FF6B9D 0%,#A66BFF 100%);
+  --paper:#FFF8F0;                 /* 信纸米白 */
+  --glass:rgba(255,255,255,0.15);  /* 玻璃拟态卡片 */
+  --glass-border:rgba(255,255,255,0.35);
+  --shadow:0 8px 32px rgba(255,107,157,0.15);
+  --text:#3d2b3d;
+  --text-soft:#7a6a7a;
+  --radius-card:16px;
+  --radius-btn:12px;
+}
+
+/* ---------- 基础重置 ---------- */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+html,body{height:100%;}
+
+body{
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--grad);
+  background-attachment:fixed;
+  color:#fff;
+  overflow-x:hidden;               /* 移动端重点：禁止横向滚动 */
+  -webkit-font-smoothing:antialiased;
+}
+
+/* 输入框统一 16px，防止 iOS 聚焦时自动缩放 */
+input,textarea,select,button{
+  font-family:inherit;
+  font-size:16px;
+}
+
+/* ---------- 通用工具类 ---------- */
+.hidden{display:none !important;}
+
+.view{
+  min-height:100vh;
+  min-height:100dvh;               /* 移动端浏览器动态视口 */
+  position:relative;
+  z-index:1;
+}
+
+/* ============================================================
+   一、登录页
+   ============================================================ */
+#viewLogin{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.login-card{
+  width:100%;
+  max-width:400px;
+  padding:40px 28px 32px;
+  border-radius:24px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  text-align:center;
+  animation:cardIn .7s cubic-bezier(.2,.9,.3,1.2) both;
+}
+
+@keyframes cardIn{
+  from{opacity:0;transform:translateY(28px) scale(.96);}
+  to{opacity:1;transform:none;}
+}
+
+.login-heart{
+  font-size:52px;
+  line-height:1;
+  margin-bottom:10px;
+  animation:beat 1.6s ease-in-out infinite;
+}
+
+@keyframes beat{
+  0%,100%{transform:scale(1);}
+  12%{transform:scale(1.18);}
+  24%{transform:scale(1);}
+  36%{transform:scale(1.12);}
+  48%{transform:scale(1);}
+}
+
+.login-title{
+  font-size:26px;
+  font-weight:700;
+  letter-spacing:2px;
+  margin-bottom:8px;
+  text-shadow:0 2px 12px rgba(0,0,0,.12);
+}
+
+.login-sub{
+  font-size:14px;
+  color:rgba(255,255,255,.85);
+  min-height:22px;                 /* 给打字机留位，避免跳动 */
+  margin-bottom:28px;
+  letter-spacing:1px;
+}
+
+/* 打字机光标 */
+.type-cursor{
+  display:inline-block;
+  width:2px;
+  height:14px;
+  margin-left:2px;
+  vertical-align:-2px;
+  background:rgba(255,255,255,.9);
+  animation:blink 1s steps(1) infinite;
+}
+@keyframes blink{50%{opacity:0;}}
+
+/* 密码输入框：高度 ≥ 48px（移动端要求） */
+.login-input{
+  width:100%;
+  height:52px;
+  padding:0 18px;
+  border-radius:var(--radius-btn);
+  border:1px solid rgba(255,255,255,.45);
+  background:rgba(255,255,255,.95);
+  color:var(--text);
+  outline:none;
+  text-align:center;
+  letter-spacing:4px;
+  transition:box-shadow .2s,border-color .2s;
+}
+.login-input::placeholder{
+  letter-spacing:1px;
+  color:#bfa9bf;
+}
+.login-input:focus{
+  border-color:#fff;
+  box-shadow:0 0 0 4px rgba(255,255,255,.28);
+}
+
+/* 登录按钮：高度 ≥ 44px 触控区 */
+.login-btn{
+  width:100%;
+  height:52px;
+  margin-top:16px;
+  border:none;
+  border-radius:var(--radius-btn);
+  background:#fff;
+  color:#d94f86;
+  font-size:17px;
+  font-weight:700;
+  letter-spacing:3px;
+  cursor:pointer;
+  transition:transform .15s,box-shadow .2s,opacity .2s;
+  box-shadow:0 6px 20px rgba(0,0,0,.12);
+}
+.login-btn:active{transform:scale(.97);}
+.login-btn:disabled{opacity:.7;cursor:default;}
+
+/* 登录失败提示 */
+.login-error{
+  margin-top:14px;
+  min-height:20px;
+  font-size:14px;
+  color:#ffe0e0;
+  text-shadow:0 1px 6px rgba(180,0,0,.35);
+  opacity:0;
+  transition:opacity .25s;
+}
+.login-error.show{opacity:1;}
+
+.login-foot{
+  margin-top:22px;
+  font-size:12px;
+  color:rgba(255,255,255,.6);
+  letter-spacing:1px;
+}
+</style>
+<style>
+/* ============================================================
+   二、主页
+   ============================================================ */
+#viewHome{
+  padding:calc(28px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom));
+  max-width:760px;
+  margin:0 auto;
+}
+
+.home-head{
+  text-align:center;
+  margin-bottom:26px;
+}
+
+.home-names{
+  font-size:15px;
+  letter-spacing:3px;
+  color:rgba(255,255,255,.9);
+  margin-bottom:14px;
+}
+
+/* 在一起天数大号倒计时 */
+.counter-box{
+  padding:24px 16px 20px;
+  border-radius:24px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+}
+
+.counter-label{
+  font-size:13px;
+  letter-spacing:4px;
+  color:rgba(255,255,255,.85);
+  margin-bottom:10px;
+}
+
+.counter-days{
+  font-size:34px;
+  font-weight:800;
+  letter-spacing:1px;
+  line-height:1.1;
+  text-shadow:0 3px 16px rgba(0,0,0,.18);
+}
+.counter-days .num{
+  font-size:64px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  margin-right:4px;
+  background:linear-gradient(180deg,#fff,#ffe3ef);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+/* 时/分/秒 精确计时 */
+.counter-hms{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  margin-top:12px;
+}
+.counter-hms .unit{
+  min-width:62px;
+  padding:8px 6px;
+  border-radius:12px;
+  background:rgba(255,255,255,.14);
+}
+.counter-hms .unit b{
+  display:block;
+  font-size:20px;
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+}
+.counter-hms .unit span{
+  font-size:11px;
+  color:rgba(255,255,255,.75);
+  letter-spacing:1px;
+}
+
+.counter-since{
+  margin-top:14px;
+  font-size:12px;
+  color:rgba(255,255,255,.72);
+  letter-spacing:1px;
+}
+
+/* ---------- 功能入口卡片 ---------- */
+.section-title{
+  margin:26px 4px 12px;
+  font-size:14px;
+  letter-spacing:3px;
+  color:rgba(255,255,255,.85);
+}
+
+.entry-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:14px;
+}
+
+.entry-card{
+  position:relative;
+  min-height:112px;
+  padding:18px 16px;
+  border-radius:var(--radius-card);
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  color:#fff;
+  text-align:left;
+  cursor:pointer;
+  transition:transform .18s,box-shadow .2s;
+}
+.entry-card:active{transform:scale(.97);}
+.entry-card .ico{font-size:28px;line-height:1;display:block;margin-bottom:10px;}
+.entry-card .name{font-size:16px;font-weight:700;letter-spacing:1px;display:block;}
+.entry-card .desc{font-size:12px;color:rgba(255,255,255,.75);margin-top:5px;display:block;line-height:1.5;}
+
+/* 退出登录 */
+.logout-row{
+  margin-top:26px;
+  text-align:center;
+}
+
+.logout-btn{
+  min-height:44px;
+  padding:0 28px;
+  border-radius:var(--radius-btn);
+  border:1px solid rgba(255,255,255,.5);
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:14px;
+  letter-spacing:2px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  transition:background .2s;
+}
+.logout-btn:active{background:rgba(255,255,255,.24);}
+
+/* ============================================================
+   三、子页面（信件 / 时间线 / 地图 / 约定）通用头部
+   ============================================================ */
+.sub-view{
+  padding:calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  max-width:760px;
+  margin:0 auto;
+}
+
+.sub-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.back-btn{
+  width:44px;
+  height:44px;                   /* 触控区 ≥ 44px */
+  flex:0 0 44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.14);
+  color:#fff;
+  font-size:20px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.back-btn:active{background:rgba(255,255,255,.26);}
+
+.sub-title{
+  flex:1;
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:2px;
+}
+
+.sub-action{
+  min-height:44px;
+  padding:0 16px;
+  border-radius:var(--radius-btn);
+  border:none;
+  background:#fff;
+  color:#d94f86;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:1px;
+  cursor:pointer;
+  white-space:nowrap;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+  transition:transform .15s;
+}
+.sub-action:active{transform:scale(.96);}
+
+/* 空状态 */
+.empty-tip{
+  margin:40px auto 0;
+  text-align:center;
+  font-size:14px;
+  color:rgba(255,255,255,.8);
+  line-height:2;
+}
+
+/* ============================================================
+   四、信件列表
+   ============================================================ */
+.letter-list{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.letter-card{
+  padding:18px;
+  border-radius:var(--radius-card);
+  background:rgba(255,255,255,.92);
+  color:var(--text);
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:transform .18s;
+  border-left:5px solid var(--pink);
+}
+.letter-card:active{transform:scale(.985);}
+.letter-card.from-song{border-left-color:var(--purple);}
+
+.letter-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+
+.letter-author{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:700;
+  padding:3px 10px;
+  border-radius:999px;
+  background:linear-gradient(135deg,rgba(255,107,157,.16),rgba(166,107,255,.16));
+  color:#b0437a;
+  letter-spacing:1px;
+}
+.letter-card.from-song .letter-author{color:#7a4fd0;}
+
+.letter-date{
+  font-size:12px;
+  color:var(--text-soft);
+  font-variant-numeric:tabular-nums;
+}
+
+.letter-title{
+  font-size:17px;
+  font-weight:700;
+  margin-bottom:8px;
+  letter-spacing:.5px;
+}
+
+/* 内容预览：前 60 字 + 两行截断 */
+.letter-preview{
+  font-size:14px;
+  line-height:1.7;
+  color:#6d5d6d;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  word-break:break-word;
+}
+
+/* ============================================================
+   五、信件详情（信纸样式）
+   ============================================================ */
+.paper-wrap{
+  display:flex;
+  justify-content:center;
+}
+
+.paper{
+  position:relative;
+  width:100%;
+  max-width:680px;                       /* 桌面最大 680px 居中 */
+  border-radius:var(--radius-card);
+  background:var(--paper);               /* 信纸米白 #FFF8F0 */
+  color:var(--text);
+  box-shadow:0 10px 40px rgba(120,60,90,.22);
+  overflow:hidden;
+}
+
+/* 顶部装饰性信头 */
+.paper-head{
+  position:relative;
+  padding:26px 28px 22px;
+  background:linear-gradient(135deg,rgba(255,107,157,.14),rgba(166,107,255,.14));
+  border-bottom:1px dashed rgba(180,120,150,.4);
+}
+.paper-head::after{                       /* 信头装饰线 */
+  content:"";
+  position:absolute;
+  left:28px;right:28px;bottom:11px;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(180,120,150,.45),transparent);
+}
+
+.paper-heart{
+  font-size:15px;
+  letter-spacing:6px;
+  text-align:center;
+  margin-bottom:10px;
+}
+
+.paper-title{
+  font-size:21px;
+  font-weight:800;
+  letter-spacing:1px;
+  text-align:center;
+  line-height:1.45;
+  word-break:break-word;
+}
+
+.paper-sub{
+  margin-top:10px;
+  font-size:12px;
+  text-align:center;
+  color:var(--text-soft);
+  letter-spacing:1px;
+}
+
+/* 信纸正文容器：长信内部滚动，不撑破页面 */
+.paper-body{
+  max-height:70vh;                       /* 移动端重点 */
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;      /* iOS 惯性滚动 */
+  padding:24px 28px 26px;
+}
+
+.paper-content{
+  font-size:16px;                        /* 移动端 16px */
+  line-height:1.8;
+  white-space:pre-wrap;                  /* 保留换行 */
+  word-break:break-word;
+  color:#4a3a4a;
+}
+
+/* 底部：此信写于 XXXX年XX月XX日 */
+.paper-foot{
+  padding:14px 28px calc(16px + env(safe-area-inset-bottom));
+  border-top:1px dashed rgba(180,120,150,.35);
+  text-align:right;
+  font-size:12px;
+  color:var(--text-soft);
+  background:rgba(255,255,255,.4);
+}
+
+.paper-actions{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  margin-top:16px;
+}
+
+.paper-actions button{
+  min-height:44px;
+  padding:0 22px;
+  border-radius:var(--radius-btn);
+  border:1px solid rgba(255,255,255,.45);
+  background:rgba(255,255,255,.16);
+  color:#fff;
+  font-size:14px;
+  letter-spacing:1px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.paper-actions button:active{background:rgba(255,255,255,.3);}
+
+/* ============================================================
+   六、底部抽屉 / 居中弹窗（新增 / 编辑信件）
+   ============================================================ */
+.sheet-mask{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  background:rgba(40,10,30,.45);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  opacity:0;
+  transition:opacity .25s;
+}
+.sheet-mask.show{opacity:1;}
+
+/* 移动端：底部抽屉，占屏高 70% */
+.sheet{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  z-index:90;
+  height:70vh;
+  height:70dvh;
+  display:flex;
+  flex-direction:column;
+  border-radius:22px 22px 0 0;
+  background:#fff;
+  color:var(--text);
+  box-shadow:0 -12px 44px rgba(80,20,60,.25);
+  transform:translateY(102%);
+  transition:transform .32s cubic-bezier(.22,.9,.3,1);
+}
+.sheet.show{transform:translateY(0);}
+
+.sheet-handle{
+  width:44px;
+  height:5px;
+  border-radius:999px;
+  background:#e6d5e6;
+  margin:10px auto 4px;
+  flex:0 0 auto;
+}
+
+.sheet-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 20px 12px;
+  flex:0 0 auto;
+}
+.sheet-head h3{font-size:17px;letter-spacing:1px;}
+
+.sheet-close{
+  width:44px;height:44px;                 /* 触控区 ≥ 44px */
+  margin-right:-10px;
+  border:none;
+  background:transparent;
+  color:#b090b0;
+  font-size:24px;
+  cursor:pointer;
+}
+
+.sheet-body{
+  flex:1 1 auto;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:0 20px 12px;
+}
+
+.sheet-foot{
+  flex:0 0 auto;
+  padding:12px 20px calc(16px + env(safe-area-inset-bottom));
+  border-top:1px solid #f0e6f0;
+}
+
+.field{margin-bottom:16px;}
+.field label{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  color:#8a6a8a;
+  margin-bottom:7px;
+  letter-spacing:1px;
+}
+
+.field input,
+.field textarea{
+  width:100%;
+  padding:13px 14px;
+  border-radius:12px;
+  border:1px solid #ecdcec;
+  background:#fdf9fd;
+  color:var(--text);
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.field textarea{
+  min-height:180px;
+  line-height:1.75;
+  resize:vertical;
+}
+.field input:focus,
+.field textarea:focus{
+  border-color:var(--pink);
+  box-shadow:0 0 0 3px rgba(255,107,157,.14);
+}
+
+.author-picker{display:flex;gap:10px;}
+.author-picker button{
+  flex:1;
+  min-height:46px;
+  border-radius:12px;
+  border:1px solid #ecdcec;
+  background:#fdf9fd;
+  color:#9a7a9a;
+  font-size:14px;
+  letter-spacing:1px;
+  cursor:pointer;
+  transition:all .2s;
+}
+.author-picker button.active{
+  border-color:transparent;
+  background:var(--grad);
+  color:#fff;
+  font-weight:700;
+  box-shadow:0 6px 16px rgba(255,107,157,.3);
+}
+
+.sheet-save{
+  width:100%;
+  height:50px;
+  border:none;
+  border-radius:var(--radius-btn);
+  background:var(--grad);
+  color:#fff;
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:3px;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(255,107,157,.32);
+  transition:transform .15s,opacity .2s;
+}
+.sheet-save:active{transform:scale(.98);}
+.sheet-save:disabled{opacity:.6;cursor:default;}
+
+.save-hint{
+  margin-top:9px;
+  min-height:18px;
+  font-size:12px;
+  text-align:center;
+  color:#c06090;
+}
+
+/* 桌面端：居中弹窗 */
+@media (min-width:768px){
+  .sheet{
+    left:50%;
+    right:auto;
+    bottom:auto;
+    top:50%;
+    width:min(600px,92vw);
+    height:auto;
+    max-height:82vh;
+    border-radius:20px;
+    transform:translate(-50%,-46%) scale(.96);
+    opacity:0;
+    transition:transform .28s,opacity .28s;
+    box-shadow:0 24px 70px rgba(80,20,60,.32);
+  }
+  .sheet.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+  .sheet-handle{display:none;}
+  .sheet-head{padding-top:18px;}
+  .sheet-foot{padding-bottom:20px;}
+}
+</style>
+<style>
+/* ============================================================
+   七、时间线
+   ============================================================ */
+.timeline{
+  position:relative;
+  padding-left:30px;
+}
+/* 垂直轴线 */
+.timeline::before{
+  content:"";
+  position:absolute;
+  left:9px;
+  top:6px;
+  bottom:6px;
+  width:2px;
+  border-radius:2px;
+  background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.35));
+}
+
+.tl-item{
+  position:relative;
+  margin-bottom:18px;
+  padding:16px 18px;
+  border-radius:var(--radius-card);
+  background:rgba(255,255,255,.9);
+  color:var(--text);
+  box-shadow:var(--shadow);
+  animation:tlIn .5s ease both;
+}
+@keyframes tlIn{
+  from{opacity:0;transform:translateX(-10px);}
+  to{opacity:1;transform:none;}
+}
+
+/* 节点圆点 */
+.tl-item::before{
+  content:"";
+  position:absolute;
+  left:-27px;
+  top:22px;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#fff;
+  border:3px solid var(--pink);
+  box-shadow:0 0 0 4px rgba(255,107,157,.22);
+}
+
+.tl-date{
+  display:inline-block;
+  font-size:12px;
+  font-weight:700;
+  padding:3px 10px;
+  border-radius:999px;
+  background:linear-gradient(135deg,rgba(255,107,157,.14),rgba(166,107,255,.14));
+  color:#b0437a;
+  letter-spacing:1px;
+  font-variant-numeric:tabular-nums;
+  margin-bottom:9px;
+}
+
+.tl-title{
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:.5px;
+  margin-bottom:6px;
+  word-break:break-word;
+}
+
+.tl-desc{
+  font-size:14px;
+  line-height:1.75;
+  color:#6d5d6d;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+/* ============================================================
+   八、地图
+   ============================================================ */
+#mapCard{
+  border-radius:var(--radius-card);
+  overflow:hidden;
+  box-shadow:0 10px 36px rgba(80,20,60,.24);
+  background:#eef3f0;
+}
+
+#loveMap{
+  width:100%;
+  height:400px;                    /* 桌面 400px */
+}
+
+/* Leaflet 弹窗适配深色主题 */
+.leaflet-popup-content-wrapper{border-radius:12px;font-family:inherit;}
+.leaflet-popup-content{margin:12px 14px;font-size:13px;line-height:1.7;color:#3d2b3d;}
+.leaflet-popup-content b{color:#b0437a;}
+
+.distance-box{
+  margin-top:16px;
+  padding:18px;
+  border-radius:var(--radius-card);
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  text-align:center;
+}
+.distance-num{
+  font-size:30px;
+  font-weight:800;
+  letter-spacing:1px;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 2px 12px rgba(0,0,0,.16);
+}
+.distance-num small{font-size:14px;font-weight:600;margin-left:4px;}
+.distance-tip{
+  margin-top:10px;
+  font-size:13px;
+  line-height:1.8;
+  color:rgba(255,255,255,.9);
+}
+.city-row{
+  display:flex;
+  justify-content:center;
+  gap:18px;
+  margin-top:14px;
+  font-size:12px;
+  color:rgba(255,255,255,.82);
+}
+.city-row span{padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.14);}
+
+/* ============================================================
+   九、随机约定
+   ============================================================ */
+.promise-card{
+  position:relative;
+  padding:34px 24px 30px;
+  border-radius:24px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  text-align:center;
+  overflow:hidden;
+}
+.promise-card::before{             /* 装饰星点 */
+  content:"✦";
+  position:absolute;
+  top:14px;left:18px;
+  font-size:14px;
+  color:rgba(255,255,255,.7);
+  animation:twinkle 2.6s ease-in-out infinite;
+}
+.promise-card::after{
+  content:"✦";
+  position:absolute;
+  bottom:16px;right:20px;
+  font-size:12px;
+  color:rgba(255,255,255,.6);
+  animation:twinkle 3.2s ease-in-out .7s infinite;
+}
+@keyframes twinkle{
+  0%,100%{opacity:.25;transform:scale(.85);}
+  50%{opacity:1;transform:scale(1.15);}
+}
+
+.promise-icon{font-size:40px;line-height:1;margin-bottom:16px;display:block;}
+
+.promise-text{
+  font-size:18px;
+  line-height:1.9;
+  font-weight:600;
+  letter-spacing:.5px;
+  min-height:80px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-shadow:0 2px 12px rgba(0,0,0,.14);
+  animation:fadeIn .45s ease both;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+.promise-btn{
+  margin-top:22px;
+  min-height:48px;
+  padding:0 32px;
+  border:none;
+  border-radius:var(--radius-btn);
+  background:#fff;
+  color:#d94f86;
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:2px;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(0,0,0,.14);
+  transition:transform .15s;
+}
+.promise-btn:active{transform:scale(.96);}
+
+.promise-count{
+  margin-top:14px;
+  font-size:12px;
+  color:rgba(255,255,255,.7);
+  letter-spacing:1px;
+}
+
+/* ============================================================
+   十、氛围动效：爱心飘落
+   ============================================================ */
+#heartsLayer{
+  position:fixed;
+  inset:0;
+  z-index:0;                       /* 在内容之下 */
+  pointer-events:none;             /* 不挡点击 */
+  overflow:hidden;
+}
+
+.fall-heart{
+  position:absolute;
+  top:-32px;
+  will-change:transform,opacity;
+  user-select:none;
+}
+
+/* ============================================================
+   十一、全局加载 & 轻提示
+   ============================================================ */
+#bootLoading{
+  position:fixed;
+  inset:0;
+  z-index:120;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  background:var(--grad);
+  color:#fff;
+  font-size:14px;
+  letter-spacing:2px;
+  transition:opacity .3s;
+}
+#bootLoading.hide{opacity:0;pointer-events:none;}
+
+.spinner{
+  width:34px;height:34px;
+  border-radius:50%;
+  border:3px solid rgba(255,255,255,.35);
+  border-top-color:#fff;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+#toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(32px + env(safe-area-inset-bottom));
+  z-index:140;
+  transform:translate(-50%,20px);
+  padding:12px 22px;
+  border-radius:999px;
+  background:rgba(45,15,35,.86);
+  color:#fff;
+  font-size:13px;
+  letter-spacing:1px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s,transform .25s;
+  max-width:86vw;
+  text-align:center;
+}
+#toast.show{opacity:1;transform:translate(-50%,0);}
+
+/* 服务不可用遮罩 */
+#offlineMask{
+  position:fixed;
+  inset:0;
+  z-index:130;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  padding:28px;
+  background:var(--grad);
+  color:#fff;
+  text-align:center;
+  font-size:14px;
+  line-height:1.9;
+  letter-spacing:1px;
+}
+
+/* ============================================================
+   十二、响应式断点（768px / 480px）
+   ============================================================ */
+@media (max-width:767px){
+  /* 地图高度移动端 300px */
+  #loveMap{height:300px;}
+
+  /* 信纸宽度：移动端 calc(100% - 32px) */
+  .paper{max-width:none;width:calc(100% - 32px);}
+
+  .counter-days{font-size:28px;}
+  .counter-days .num{font-size:52px;}
+
+  .entry-grid{gap:12px;}
+  .entry-card{min-height:104px;padding:16px 14px;}
+}
+
+@media (max-width:480px){
+  .login-card{padding:32px 22px 26px;border-radius:20px;}
+  .login-title{font-size:23px;}
+
+  #viewHome{padding-left:16px;padding-right:16px;}
+
+  .counter-box{padding:20px 12px 18px;border-radius:20px;}
+  .counter-days .num{font-size:46px;}
+
+  .counter-hms{gap:10px;}
+  .counter-hms .unit{min-width:54px;padding:7px 4px;}
+  .counter-hms .unit b{font-size:18px;}
+
+  .entry-card .ico{font-size:24px;}
+  .entry-card .name{font-size:15px;}
+
+  .sub-title{font-size:17px;}
+  .paper-head{padding:22px 20px 18px;}
+  .paper-title{font-size:19px;}
+  .paper-body{padding:20px 20px 22px;}
+  .paper-content{font-size:16px;line-height:1.8;}
+
+  .timeline{padding-left:26px;}
+  .tl-item{padding:14px 16px;}
+
+  .promise-text{font-size:16px;}
+}
+
+/* 减少动画偏好（无障碍） */
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- 爱心飘落层（z-index:0，位于内容下层，pointer-events:none 不挡点击） -->
+<div id="heartsLayer" aria-hidden="true"></div>
+
+<!-- ============ 启动加载 ============ -->
+<div id="bootLoading">
+  <div class="spinner"></div>
+  <div>正在打开我们的空间…</div>
+</div>
+
+<!-- ============ 登录页 ============ -->
+<section id="viewLogin" class="view">
+  <div class="login-card">
+    <div class="login-heart">💗</div>
+    <h1 class="login-title">我们的私密空间</h1>
+    <p class="login-sub" id="loginSub"><span class="type-cursor"></span></p>
+
+    <!-- 只有一个密码输入框：登录时用同一个密码依次尝试两个邮箱 -->
+    <input id="loginInput" class="login-input" type="password" inputmode="text"
+           autocomplete="current-password" placeholder="请输入我们的密码" maxlength="64">
+
+    <button id="loginBtn" class="login-btn" type="button">进 入</button>
+
+    <p class="login-error" id="loginError">密码不正确，再试一次</p>
+    <p class="login-foot">王鸿 · 宋星禾 &nbsp;|&nbsp; 仅属于我们两个人</p>
+  </div>
+</section>
+
+<!-- ============ 主页 ============ -->
+<section id="viewHome" class="view hidden">
+  <div class="home-head">
+    <div class="home-names">王鸿 💗 宋星禾</div>
+
+    <!-- 在一起天数大号倒计时（每秒刷新） -->
+    <div class="counter-box">
+      <div class="counter-label">我们已经在一起</div>
+      <div class="counter-days"><span class="num" id="daysNum">0</span>天</div>
+      <div class="counter-hms">
+        <div class="unit"><b id="hoursNum">00</b><span>时</span></div>
+        <div class="unit"><b id="minutesNum">00</b><span>分</span></div>
+        <div class="unit"><b id="secondsNum">00</b><span>秒</span></div>
+      </div>
+      <div class="counter-since" id="sinceText">从 —— 开始</div>
+    </div>
+  </div>
+
+  <div class="section-title">我们要做的小事</div>
+  <div class="entry-grid">
+    <button class="entry-card" data-goto="letters" type="button">
+      <span class="ico">💌</span>
+      <span class="name">信件</span>
+      <span class="desc">写给对方的悄悄话</span>
+    </button>
+    <button class="entry-card" data-goto="timeline" type="button">
+      <span class="ico">🕰️</span>
+      <span class="name">时间线</span>
+      <span class="desc">我们走过的小脚印</span>
+    </button>
+    <button class="entry-card" data-goto="map" type="button">
+      <span class="ico">📍</span>
+      <span class="name">地图</span>
+      <span class="desc">成都 ↔ 自贡的距离</span>
+    </button>
+    <button class="entry-card" data-goto="promise" type="button">
+      <span class="ico">🌙</span>
+      <span class="name">约定</span>
+      <span class="desc">未来想做的小约定</span>
+    </button>
+  </div>
+
+  <div class="logout-row">
+    <button id="logoutBtn" class="logout-btn" type="button">退出登录</button>
+  </div>
+</section>
+
+<!-- ============ 信件列表 ============ -->
+<section id="viewLetters" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">信件</h2>
+    <button id="newLetterBtn" class="sub-action" type="button">+ 写信</button>
+  </div>
+  <div id="letterList" class="letter-list"></div>
+  <div id="letterEmpty" class="empty-tip hidden">
+    还没有信呢<br>点右上角「+ 写信」，写下第一句吧
+  </div>
+</section>
+
+<!-- ============ 信件详情 ============ -->
+<section id="viewLetterDetail" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back="letters" type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">读信</h2>
+    <button id="editLetterBtn" class="sub-action" type="button">编辑</button>
+  </div>
+
+  <div class="paper-wrap">
+    <article class="paper">
+      <!-- 顶部装饰性信头 -->
+      <header class="paper-head">
+        <div class="paper-heart">♥ ♥ ♥</div>
+        <h3 class="paper-title" id="paperTitle">标题</h3>
+        <div class="paper-sub" id="paperSub">写自 ——</div>
+      </header>
+      <!-- 正文容器：max-height 70vh + 内部滚动，长信不撑破页面 -->
+      <div class="paper-body" id="paperBody">
+        <div class="paper-content" id="paperContent"></div>
+      </div>
+      <!-- 底部：此信写于 XXXX年XX月XX日 -->
+      <footer class="paper-foot" id="paperFoot">此信写于 ——</footer>
+    </article>
+  </div>
+
+  <div class="paper-actions">
+    <button id="deleteLetterBtn" type="button">删除这封信</button>
+  </div>
+</section>
+
+<!-- ============ 时间线 ============ -->
+<section id="viewTimeline" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">时间线</h2>
+    <button id="newTimelineBtn" class="sub-action" type="button">+ 记录</button>
+  </div>
+  <div id="timelineList" class="timeline"></div>
+  <div id="timelineEmpty" class="empty-tip hidden">
+    时间线还是空的<br>点右上角「+ 记录」，写下我们的第一天
+  </div>
+</section>
+
+<!-- ============ 地图 ============ -->
+<section id="viewMap" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">我们的距离</h2>
+  </div>
+
+  <div id="mapCard">
+    <div id="loveMap"></div>
+  </div>
+
+  <div class="distance-box">
+    <div class="distance-num" id="distanceNum">计算中…</div>
+    <div class="distance-tip" id="distanceTip">成都和自贡之间，是我们想念的路线</div>
+    <div class="city-row">
+      <span>王鸿 · 成都</span>
+      <span>宋星禾 · 自贡</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 随机约定 ============ -->
+<section id="viewPromise" class="view sub-view hidden">
+  <div class="sub-head">
+    <button class="back-btn" data-back type="button" aria-label="返回">‹</button>
+    <h2 class="sub-title">未来小约定</h2>
+  </div>
+
+  <div class="promise-card">
+    <span class="promise-icon">🌙</span>
+    <div class="promise-text" id="promiseText">点一下，看看今天抽到哪个小约定</div>
+    <button id="promiseBtn" class="promise-btn" type="button">换 一 个</button>
+    <div class="promise-count" id="promiseCount"></div>
+  </div>
+</section>
+
+<!-- ============ 信件新增/编辑：底部抽屉（移动）/ 居中弹窗（桌面） ============ -->
+<div id="sheetMask" class="sheet-mask hidden"></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3 id="sheetTitle">写一封信</h3>
+    <button id="sheetClose" class="sheet-close" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="sheet-body">
+    <div class="field">
+      <label>写信人</label>
+      <div class="author-picker">
+        <button type="button" id="authorWang" data-author="wanghong" class="active">王鸿</button>
+        <button type="button" id="authorSong" data-author="songxinghe">宋星禾</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>标题</label>
+      <input id="letterTitleInput" type="text" maxlength="80" placeholder="给这封信起个名字">
+    </div>
+    <div class="field">
+      <label>内容</label>
+      <textarea id="letterContentInput" maxlength="20000" placeholder="慢慢写，不着急…"></textarea>
+    </div>
+  </div>
+
+  <div class="sheet-foot">
+    <button id="saveLetterBtn" class="sheet-save" type="button">保 存</button>
+    <div class="save-hint" id="saveHint"></div>
+  </div>
+</div>
+
+<!-- ============ 时间线新增：底部抽屉 ============ -->
+<div id="tlSheetMask" class="sheet-mask hidden"></div>
+<div id="tlSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="tlSheetTitle">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3 id="tlSheetTitle">记一笔</h3>
+    <button id="tlSheetClose" class="sheet-close" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="sheet-body">
+    <div class="field">
+      <label>日期</label>
+      <input id="tlDateInput" type="date">
+    </div>
+    <div class="field">
+      <label>标题</label>
+      <input id="tlTitleInput" type="text" maxlength="80" placeholder="发生了什么？">
+    </div>
+    <div class="field">
+      <label>描述（可留空）</label>
+      <textarea id="tlDescInput" maxlength="2000" style="min-height:110px" placeholder="想多写一点就写～"></textarea>
+    </div>
+  </div>
+
+  <div class="sheet-foot">
+    <button id="saveTimelineBtn" class="sheet-save" type="button">保 存</button>
+    <div class="save-hint" id="tlSaveHint"></div>
+  </div>
+</div>
+
+<!-- 轻提示 -->
+<div id="toast"></div>
+
+<!-- Leaflet 地图库 -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Supabase 官方 JS SDK（用 UMD 版本，直接挂到 window.supabase） -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* ============================================================
+   whwithsxh · 前端逻辑（一）
+   配置区 / 工具函数 / 登录与 Session / 背景动效 / 启动流程
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   0. 配置区（部署后唯一可能需要修改的地方）
+   ------------------------------------------------------------
+   说明：下面两个值是 Supabase 项目的「公开」凭证。
+   - publishable key 设计上就会出现在浏览器里（用于标识项目身份），
+     它不是密码，也不具备管理员权限，可以安全地放在网页里；
+   - 真正的隐私保护来自数据库 RLS（行级安全）策略：
+     我们已把 letters / timeline 的读写权限收紧为
+     「仅这两个账号可读写」，未登录或其它账号都读不到任何数据。
+   - 若要替换成自己的项目，把下面两行改成你的
+     YOUR_SUPABASE_URL / YOUR_SUPABASE_PUBLISHABLE_KEY 对应值即可。 */
+const SUPABASE_URL = 'https://pguzkbjhsnszeccprxdx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_8yGJYAW0E9INtDFT9aK81g_RPuWJ8jJ';
+
+/* 登录账号：
+   前端只有一个密码框。点击登录后，用同一个密码按顺序尝试下面两个邮箱，
+   任意一个匹配成功即登录（Supabase 不支持明文校验密码，必须真正走登录接口）。 */
+const LOGIN_EMAILS = ['wanghong@whwithsxh.local', 'songxinghe@whwithsxh.local'];
+
+/* Session 有效期：默认 7 天（到期后需重新输入密码）*/
+const SESSION_DAYS = 7;
+const SESSION_MAX_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
+
+/* 在一起的日子：带上 +08:00 时区，保证在任何设备上计算结果一致 */
+const TOGETHER_DATE = new Date('2026-09-07T00:00:00+08:00');
+
+/* 两个人 + 各自城市坐标（地图模块使用，坐标不参与距离硬编码，距离由公式实时计算）*/
+const PEOPLE = {
+  wanghong:   { name: '王鸿',   city: '成都', lat: 30.5728, lng: 104.0668, email: 'wanghong@whwithsxh.local' },
+  songxinghe: { name: '宋星禾', city: '自贡', lat: 29.3392, lng: 104.7784, email: 'songxinghe@whwithsxh.local' }
+};
+
+/* Supabase 会话与自定义登录时间在 localStorage 中的键名 */
+const LS_LOGIN_AT = 'whwithsxh_login_at';
+const LS_EMAIL    = 'whwithsxh_email';
+
+/* 全局状态 */
+let sb = null;                    // Supabase 客户端
+let currentUser = 'wanghong';     // 当前登录的是谁：wanghong / songxinghe
+let lettersCache = [];            // 信件缓存（列表 → 详情直接读缓存）
+let currentLetter = null;         // 当前正在看的信
+let editingLetterId = null;       // null=新写信；否则为编辑中的信件 id
+let sheetAuthor = 'wanghong';     // 写信抽屉里当前选中的作者
+let counterTimer = null;          // 倒计时定时器
+let sessionTimer = null;          // session 过期检查定时器
+
+/* localStorage 安全包装（无痕模式下可能抛异常，不能让整站挂掉）*/
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k){ try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+/* ------------------------------------------------------------
+   1. 通用小工具
+   ------------------------------------------------------------ */
+const $ = (id) => document.getElementById(id);
+
+/** 轻提示：底部浮出一条消息，2 秒后自动消失 */
+function showToast(msg){
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+/** 切换页面视图（登录页 / 主页 / 四个子页） */
+const ALL_VIEWS = ['viewLogin','viewHome','viewLetters','viewLetterDetail','viewTimeline','viewMap','viewPromise'];
+function showView(id){
+  ALL_VIEWS.forEach(v => $(v).classList.toggle('hidden', v !== id));
+  window.scrollTo(0, 0);
+}
+
+function pad2(n){ return String(n).padStart(2, '0'); }
+
+/** 把日期格式化成「2026年09月07日」 */
+function fmtCN(d){
+  const y = d.getFullYear();
+  return y + '年' + pad2(d.getMonth() + 1) + '月' + pad2(d.getDate()) + '日';
+}
+
+/** ISO 字符串 → 「2026年09月07日」（用于信件日期） */
+function fmtISO(iso){
+  if (!iso) return '——';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '——' : fmtCN(d);
+}
+
+/** 时间线日期（YYYY-MM-DD）→ 「2026年09月07日」，避免时区偏移 */
+function fmtDay(str){
+  if (!str) return '——';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+  return m ? m[1] + '年' + m[2] + '月' + m[3] + '日' : str;
+}
+
+/* ------------------------------------------------------------
+   2. 背景动效：爱心飘落（requestAnimationFrame）
+   移动端粒子数 ≤ 15，保证手机流畅
+   ------------------------------------------------------------ */
+let heartsRAF = null;
+
+function startHearts(){
+  const layer = $('heartsLayer');
+  if (!layer) return;
+  // 尊重系统「减少动态效果」偏好
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const COUNT = isMobile ? 12 : 20;          // 移动端 ≤ 15 个粒子
+  const EMOJI = ['💗','💖','💕','💞','♥️'];
+  const hearts = [];
+
+  for (let i = 0; i < COUNT; i++){
+    const el = document.createElement('div');
+    el.className = 'fall-heart';
+    el.textContent = EMOJI[i % EMOJI.length];
+    const size = (isMobile ? 14 : 16) + Math.random() * (isMobile ? 10 : 14);
+    el.style.fontSize = size + 'px';
+    el.style.opacity = (0.35 + Math.random() * 0.45).toFixed(2);
+    layer.appendChild(el);
+    hearts.push({
+      el,
+      x: Math.random() * 100,                        // 水平位置（vw）
+      y: -10 - Math.random() * 100,                  // 起始在屏幕上方
+      vy: 18 + Math.random() * 34,                   // 下落速度 px/s
+      sway: 10 + Math.random() * 26,                 // 左右摇摆幅度
+      phase: Math.random() * Math.PI * 2,            // 摇摆相位
+      rot: (Math.random() - 0.5) * 40                // 初始旋转
+    });
+  }
+
+  let last = performance.now();
+  let paused = false;
+
+  function frame(now){
+    const dt = Math.min((now - last) / 1000, 0.05);   // 限制单帧步长，切后台回来不跳
+    last = now;
+    const H = window.innerHeight;
+    for (const h of hearts){
+      h.y += h.vy * dt;
+      h.phase += dt * 0.9;
+      if (h.y > H + 40){                              // 飘出屏幕 → 回到顶部重生
+        h.y = -30 - Math.random() * 120;
+        h.x = Math.random() * 100;
+        h.vy = 18 + Math.random() * 34;
+      }
+      const dx = Math.sin(h.phase) * h.sway;
+      h.el.style.transform = 'translate3d(' + (dx).toFixed(1) + 'px,' + h.y.toFixed(1) + 'px,0) rotate(' + h.rot + 'deg)';
+      h.el.style.left = h.x + 'vw';
+    }
+    if (!paused) heartsRAF = requestAnimationFrame(frame);
+  }
+  heartsRAF = requestAnimationFrame(frame);
+
+  // 切到后台时暂停，省电（手机上很重要）
+  document.addEventListener('visibilitychange', () => {
+    paused = document.hidden;
+    if (!paused){ last = performance.now(); heartsRAF = requestAnimationFrame(frame); }
+  });
+}
+
+/* ------------------------------------------------------------
+   3. 登录页打字机效果
+   ------------------------------------------------------------ */
+const TYPE_TEXTS = ['只属于我们两个人的地方', '想说的话，慢慢写给你', '成都 ⇄ 自贡，也有我们的小宇宙'];
+let typeTimer = null;
+
+function startTypewriter(){
+  const box = $('loginSub');
+  if (!box) return;
+  let ti = 0, ci = 0, deleting = false;
+
+  function tick(){
+    const full = TYPE_TEXTS[ti];
+    ci += deleting ? -1 : 1;
+    box.innerHTML = '';
+    box.appendChild(document.createTextNode(full.slice(0, ci)));
+    const cursor = document.createElement('span');
+    cursor.className = 'type-cursor';
+    box.appendChild(cursor);
+
+    let delay = deleting ? 45 : 105;
+    if (!deleting && ci >= full.length){ delay = 1600; deleting = true; }
+    else if (deleting && ci <= 0){ deleting = false; ti = (ti + 1) % TYPE_TEXTS.length; delay = 350; }
+    typeTimer = setTimeout(tick, delay);
+  }
+  tick();
+}
+</script>
+<script>
+/* ============================================================
+   whwithsxh · 前端逻辑（二）
+   登录 / Session 管理（7 天有效期）/ 退出登录
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   4. Supabase 客户端初始化
+   ------------------------------------------------------------ */
+function initSupabase(){
+  if (!window.supabase || typeof window.supabase.createClient !== 'function'){
+    // CDN 加载失败：给出明确提示，而不是白屏
+    $('bootLoading').innerHTML =
+      '<div style="padding:0 28px;text-align:center;line-height:2">' +
+      '网络好像不太顺畅 🌧<br>没能加载到必要的组件<br>请检查网络后刷新页面</div>';
+    return false;
+  }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      persistSession: true,        // 会话写入 localStorage，实现「下次自动登录」
+      autoRefreshToken: true,      // 自动续期 access token
+      detectSessionInUrl: false    // 本站不做邮件魔法链接登录
+    }
+  });
+  return true;
+}
+
+/* ------------------------------------------------------------
+   5. Session 管理
+   ------------------------------------------------------------
+   双层有效期：
+   a) Supabase 自身的会话（自动续期，只要常来就不会掉）
+   b) 本站策略：从登录那一刻算起，最多 7 天；超过后强制重新输密码
+   ------------------------------------------------------------ */
+function sessionAgeMs(){
+  const t = store.get(LS_LOGIN_AT);
+  if (!t) return Infinity;
+  const n = parseInt(t, 10);
+  return isNaN(n) ? Infinity : (Date.now() - n);
+}
+
+function isSessionExpired(){
+  return sessionAgeMs() > SESSION_MAX_MS;
+}
+
+/** 记录本次登录时间与登录身份 */
+function markLogin(email){
+  store.set(LS_LOGIN_AT, String(Date.now()));
+  store.set(LS_EMAIL, email);
+  currentUser = email.indexOf('songxinghe') === 0 ? 'songxinghe' : 'wanghong';
+}
+
+/** 用 Supabase 查一次当前会话是否仍然有效（服务器侧校验）*/
+async function hasValidSupabaseSession(){
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) return null;
+    const s = data && data.session;
+    if (!s || !s.user) return null;
+    if (s.expires_at && (s.expires_at * 1000) < Date.now() - 60000){
+      // access token 已过期且未能续期
+      return null;
+    }
+    return s;
+  } catch (e){ return null; }
+}
+
+/** 启动时决定：直接进主页，还是回到登录页 */
+async function restoreSession(){
+  // 先做本地 7 天判定，避免不必要的网络请求
+  if (isSessionExpired()){
+    await clearSession();
+    return false;
+  }
+  const s = await hasValidSupabaseSession();
+  if (!s){
+    await clearSession();
+    return false;
+  }
+  // 服务器会话有效：按邮箱恢复身份
+  const email = (s.user && s.user.email) || store.get(LS_EMAIL) || '';
+  currentUser = email.indexOf('songxinghe') === 0 ? 'songxinghe' : 'wanghong';
+  // 若本地没有登录时间戳（例如换了浏览器），补记一次
+  if (!store.get(LS_LOGIN_AT)) store.set(LS_LOGIN_AT, String(Date.now()));
+  return true;
+}
+
+/** 清空登录状态 */
+async function clearSession(){
+  store.del(LS_LOGIN_AT);
+  store.del(LS_EMAIL);
+  try { await sb.auth.signOut(); } catch (e) {}
+}
+
+/* ------------------------------------------------------------
+   6. 登录动作
+   ------------------------------------------------------------
+   页面只有一个密码框。由于 Supabase 只能在服务器端校验密码，
+   这里用「同一个密码依次尝试两个账号」的方式实现：
+   任一成功即为登录成功；两个都失败则提示密码不正确。
+   ------------------------------------------------------------ */
+let loggingIn = false;
+
+async function doLogin(){
+  if (loggingIn) return;
+  const pwd = ($('loginInput').value || '').trim();
+  const errEl = $('loginError');
+  errEl.classList.remove('show');
+
+  if (!pwd){
+    errEl.textContent = '请输入密码';
+    errEl.classList.add('show');
+    return;
+  }
+
+  loggingIn = true;
+  const btn = $('loginBtn');
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '正 在 进 入…';
+
+  try {
+    for (const email of LOGIN_EMAILS){
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+      if (!error && data && data.session){
+        // 命中：记录登录时间（7 天有效期的起点）
+        markLogin(email);
+        $('loginInput').value = '';
+        await enterApp();
+        return;
+      }
+      // 密码错误 / 邮箱不存在：静默继续尝试下一个账号
+    }
+    // 两个账号都失败
+    errEl.textContent = '密码不正确，再试一次';
+    errEl.classList.add('show');
+  } catch (e){
+    errEl.textContent = '网络开小差了，稍后再试';
+    errEl.classList.add('show');
+  } finally {
+    loggingIn = false;
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+/* ------------------------------------------------------------
+   7. 退出登录
+   ------------------------------------------------------------ */
+async function doLogout(){
+  if (!confirm('确定要退出吗？')) return;
+  await clearSession();
+  stopCounter();
+  startTypewriter();
+  showView('viewLogin');
+  showToast('已退出，下次再来 💗');
+}
+
+/** 定时检查 7 天是否到期（页面前台停留很久的情况）*/
+function watchSessionExpiry(){
+  clearInterval(sessionTimer);
+  sessionTimer = setInterval(async () => {
+    if (!isSessionExpired()) return;
+    clearInterval(sessionTimer);
+    await clearSession();
+    stopCounter();
+    showView('viewLogin');
+    alert('登录已超过 7 天，为了安全请重新输入密码');
+  }, 60 * 1000);
+}
+</script>
+<script>
+/* ============================================================
+   whwithsxh · 前端逻辑（三）
+   信件模块：列表 / 详情（信纸排版）/ 新增 / 编辑 / 删除
+   ------------------------------------------------------------
+   读写说明（与 RLS 对应）：
+   前端使用登录后的 session（JWT）调用 Supabase REST 接口，
+   数据库端的 RLS 策略只允许我们两个账号读写，因此：
+   - 未登录时调用会直接失败（前端也会拦在登录页）；
+   - 任何第三方拿到 publishable key 也无法读到信件内容。
+   ============================================================ */
+
+/** HTML 转义：信件/时间线内容是用户输入，渲染前必须转义，防止 HTML 注入 */
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** 取作者展示名 */
+function authorName(key){
+  return (PEOPLE[key] && PEOPLE[key].name) || '我们';
+}
+
+/* ------------------------------------------------------------
+   8. 信件列表
+   ------------------------------------------------------------ */
+async function loadLetters(){
+  const box = $('letterList');
+  box.innerHTML = '<div class="empty-tip">正在打开信箱…</div>';
+  $('letterEmpty').classList.add('hidden');
+
+  try {
+    // 按 created_at 倒序；只展示已发布的信
+    const { data, error } = await sb
+      .from('letters')
+      .select('id,author,title,content,created_at,updated_at,is_published')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    lettersCache = data || [];
+    renderLetters();
+  } catch (e){
+    box.innerHTML = '<div class="empty-tip">信件没能加载出来 🌧<br>请检查网络后重试</div>';
+  }
+}
+
+function renderLetters(){
+  const box = $('letterList');
+
+  if (!lettersCache.length){
+    box.innerHTML = '';
+    $('letterEmpty').classList.remove('hidden');
+    return;
+  }
+  $('letterEmpty').classList.add('hidden');
+
+  box.innerHTML = lettersCache.map(l => {
+    const raw = (l.content || '').trim();
+    // 预览：前 60 字（CSS 再以两行截断）
+    const preview = raw
+      ? esc(raw.slice(0, 60)) + (raw.length > 60 ? '…' : '')
+      : '（还没有内容）';
+
+    return '' +
+      '<article class="letter-card' + (l.author === 'songxinghe' ? ' from-song' : '') + '" data-id="' + l.id + '">' +
+        '<div class="letter-meta">' +
+          '<span class="letter-author">' + esc(authorName(l.author)) + '</span>' +
+          '<span class="letter-date">' + fmtISO(l.created_at) + '</span>' +
+        '</div>' +
+        '<h3 class="letter-title">' + esc(l.title || '无题') + '</h3>' +
+        '<p class="letter-preview">' + preview + '</p>' +
+      '</article>';
+  }).join('');
+}
+
+/** 列表点击：进入详情（事件委托，卡片数量变化也不用重新绑定）*/
+function onLetterListClick(e){
+  const card = e.target.closest('.letter-card');
+  if (!card) return;
+  openLetterDetail(card.dataset.id);
+}
+
+/* ------------------------------------------------------------
+   9. 信件详情（信纸排版）
+   ------------------------------------------------------------ */
+function openLetterDetail(id){
+  const letter = lettersCache.find(l => l.id === id);
+  if (!letter) return;
+  currentLetter = letter;
+  renderLetterDetail();
+  showView('viewLetterDetail');
+}
+
+function renderLetterDetail(){
+  const l = currentLetter;
+  if (!l) return;
+
+  $('paperTitle').textContent = l.title || '无题';
+  $('paperSub').textContent = '写自 ' + authorName(l.author);
+  // 用 textContent 写入正文：保留换行（CSS white-space:pre-wrap），且天然防注入
+  $('paperContent').textContent = (l.content || '').trim() || '（这封信还没有内容）';
+  // 底部：此信写于 XXXX年XX月XX日
+  $('paperFoot').textContent = '此信写于 ' + fmtISO(l.created_at);
+
+  // 长信滚动时回到顶部
+  $('paperBody').scrollTop = 0;
+}
+
+/* ------------------------------------------------------------
+   10. 写信 / 编辑信件（底部抽屉，桌面端为居中弹窗）
+   ------------------------------------------------------------ */
+function openLetterSheet(letter){
+  editingLetterId = letter ? letter.id : null;
+
+  $('sheetTitle').textContent = letter ? '编辑这封信' : '写一封信';
+  $('letterTitleInput').value = letter ? (letter.title || '') : '';
+  $('letterContentInput').value = letter ? (letter.content || '') : '';
+
+  // 新写信时默认作者=当前登录的人；编辑时用原作者
+  const author = letter ? letter.author : currentUser;
+  setSheetAuthor(author);
+
+  $('saveHint').textContent = '';
+  $('sheetMask').classList.remove('hidden');
+  $('sheet').classList.remove('hidden');
+  requestAnimationFrame(() => {
+    $('sheetMask').classList.add('show');
+    $('sheet').classList.add('show');
+  });
+
+  // 桌面端自动聚焦标题（移动端不聚焦，避免键盘立刻弹出挡住界面）
+  if (window.matchMedia('(min-width: 768px)').matches){
+    setTimeout(() => $('letterTitleInput').focus(), 320);
+  }
+}
+
+function closeLetterSheet(){
+  $('sheetMask').classList.remove('show');
+  $('sheet').classList.remove('show');
+  setTimeout(() => {
+    $('sheetMask').classList.add('hidden');
+    $('sheet').classList.add('hidden');
+  }, 300);
+}
+
+function setSheetAuthor(a){
+  sheetAuthor = (a === 'songxinghe') ? 'songxinghe' : 'wanghong';
+  $('authorWang').classList.toggle('active', sheetAuthor === 'wanghong');
+  $('authorSong').classList.toggle('active', sheetAuthor === 'songxinghe');
+}
+
+async function saveLetter(){
+  const title = $('letterTitleInput').value.trim();
+  const content = $('letterContentInput').value;
+  const hint = $('saveHint');
+
+  if (!title){
+    hint.textContent = '给这封信起个标题吧';
+    return;
+  }
+
+  const btn = $('saveLetterBtn');
+  btn.disabled = true;
+  hint.textContent = '正在保存…';
+
+  try {
+    let error;
+    if (editingLetterId){
+      // 编辑：更新已有信件（updated_at 由数据库触发器自动刷新）
+      ({ error } = await sb.from('letters')
+        .update({ author: sheetAuthor, title: title, content: content })
+        .eq('id', editingLetterId));
+    } else {
+      // 新增：写入 letters 表
+      ({ error } = await sb.from('letters')
+        .insert({ author: sheetAuthor, title: title, content: content, is_published: true }));
+    }
+
+    if (error) throw error;
+
+    closeLetterSheet();
+    showToast(editingLetterId ? '已更新 💌' : '已收进信箱 💌');
+
+    // 列表刷新
+    await loadLetters();
+
+    // 如果正在看这封信的详情，同步刷新内容
+    if (currentLetter){
+      const fresh = lettersCache.find(l => l.id === currentLetter.id);
+      if (fresh){ currentLetter = fresh; renderLetterDetail(); }
+    }
+  } catch (e){
+    hint.textContent = '保存失败，请检查网络后重试';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------
+   11. 删除信件
+   ------------------------------------------------------------ */
+async function deleteCurrentLetter(){
+  const l = currentLetter;
+  if (!l) return;
+  if (!confirm('确定要删除《' + (l.title || '无题') + '》吗？\n删掉就找不回来了。')) return;
+
+  try {
+    const { error } = await sb.from('letters').delete().eq('id', l.id);
+    if (error) throw error;
+
+    currentLetter = null;
+    showToast('已删除');
+    showView('viewLetters');
+    await loadLetters();
+  } catch (e){
+    showToast('删除失败，请稍后再试');
+  }
+}
+</script>
+<script>
+/* ============================================================
+   whwithsxh · 前端逻辑（四）
+   时间线 / 地图（Leaflet + Haversine）/ 随机约定
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   12. 时间线
+   ------------------------------------------------------------ */
+async function loadTimeline(){
+  const box = $('timelineList');
+  box.innerHTML = '<div class="empty-tip" style="margin-left:-30px">正在翻阅我们的回忆…</div>';
+  $('timelineEmpty').classList.add('hidden');
+
+  try {
+    const { data, error } = await sb
+      .from('timeline')
+      .select('id,date,title,description,author')
+      .order('date', { ascending: true })
+      .order('title', { ascending: true });
+
+    if (error) throw error;
+    renderTimeline(data || []);
+  } catch (e){
+    box.innerHTML = '<div class="empty-tip" style="margin-left:-30px">时间线没能加载出来 🌧<br>请检查网络后重试</div>';
+  }
+}
+
+function renderTimeline(items){
+  const box = $('timelineList');
+
+  if (!items.length){
+    box.innerHTML = '';
+    $('timelineEmpty').classList.remove('hidden');
+    return;
+  }
+  $('timelineEmpty').classList.add('hidden');
+
+  box.innerHTML = items.map((it, i) => {
+    const desc = (it.description || '').trim();
+    return '' +
+      '<div class="tl-item" style="animation-delay:' + Math.min(i * 60, 360) + 'ms">' +
+        '<span class="tl-date">' + fmtDay(it.date) + '</span>' +
+        '<h3 class="tl-title">' + esc(it.title || '') + '</h3>' +
+        (desc ? '<p class="tl-desc">' + esc(desc) + '</p>' : '') +
+      '</div>';
+  }).join('');
+}
+
+/* ---------- 时间线新增（底部抽屉） ---------- */
+function openTimelineSheet(){
+  const d = new Date();
+  $('tlDateInput').value = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  $('tlTitleInput').value = '';
+  $('tlDescInput').value = '';
+  $('tlSaveHint').textContent = '';
+
+  $('tlSheetMask').classList.remove('hidden');
+  $('tlSheet').classList.remove('hidden');
+  requestAnimationFrame(() => {
+    $('tlSheetMask').classList.add('show');
+    $('tlSheet').classList.add('show');
+  });
+}
+
+function closeTimelineSheet(){
+  $('tlSheetMask').classList.remove('show');
+  $('tlSheet').classList.remove('show');
+  setTimeout(() => {
+    $('tlSheetMask').classList.add('hidden');
+    $('tlSheet').classList.add('hidden');
+  }, 300);
+}
+
+async function saveTimeline(){
+  const date = $('tlDateInput').value;
+  const title = $('tlTitleInput').value.trim();
+  const desc = $('tlDescInput').value.trim();
+  const hint = $('tlSaveHint');
+
+  if (!date){ hint.textContent = '选一个日期吧'; return; }
+  if (!title){ hint.textContent = '给这件事起个标题吧'; return; }
+
+  const btn = $('saveTimelineBtn');
+  btn.disabled = true;
+  hint.textContent = '正在保存…';
+
+  try {
+    const { error } = await sb.from('timeline')
+      .insert({ date: date, title: title, description: desc, author: currentUser });
+    if (error) throw error;
+
+    closeTimelineSheet();
+    showToast('已记下这一天 🕰️');
+    await loadTimeline();
+  } catch (e){
+    hint.textContent = '保存失败，请检查网络后重试';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------
+   13. 地图：Leaflet 标记成都、自贡 + 虚线连接 + Haversine 实测距离
+   ------------------------------------------------------------ */
+let leafletMap = null;      // 地图实例（只初始化一次）
+let didFitMap = false;      // 是否已完成首次视野适配
+
+/** Haversine 公式：由两点的经纬度实时计算球面直线距离（公里）
+ *  不硬编码任何距离数值，坐标改了就自动重算。 */
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371;                                   // 地球平均半径（公里）
+  const toRad = (deg) => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function initMap(){
+  if (leafletMap) return;                              // 避免重复创建
+  if (!window.L || typeof window.L.map !== 'function'){
+    $('mapCard').innerHTML = '<div class="empty-tip" style="padding:60px 20px;color:#7a6a7a">地图组件没能加载 🌧<br>请检查网络后刷新</div>';
+    return;
+  }
+
+  const A = PEOPLE.wanghong;    // 成都
+  const B = PEOPLE.songxinghe;  // 自贡
+
+  // 初始化地图（禁用滚轮缩放，避免手机上滑动页面时误触缩放）
+  leafletMap = L.map('loveMap', {
+    scrollWheelZoom: false,
+    zoomControl: true,
+    attributionControl: true
+  });
+
+  // OpenStreetMap 免费瓦片
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(leafletMap);
+
+  // 自定义爱心标记
+  const heartIcon = (color) => L.divIcon({
+    className: '',
+    html: '<div style="font-size:26px;line-height:1;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35))">' + color + '</div>',
+    iconSize: [26, 26],
+    iconAnchor: [13, 24]
+  });
+
+  const m1 = L.marker([A.lat, A.lng], { icon: heartIcon('💗') }).addTo(leafletMap);
+  const m2 = L.marker([B.lat, B.lng], { icon: heartIcon('💜') }).addTo(leafletMap);
+
+  m1.bindPopup('<b>' + A.name + '</b><br>' + A.city + '<br>纬度 ' + A.lat + '，经度 ' + A.lng);
+  m2.bindPopup('<b>' + B.name + '</b><br>' + B.city + '<br>纬度 ' + B.lat + '，经度 ' + B.lng);
+
+  // 两地之间的虚线
+  L.polyline([[A.lat, A.lng], [B.lat, B.lng]], {
+    color: '#FF6B9D',
+    weight: 3,
+    opacity: 0.9,
+    dashArray: '8 10',          // 虚线
+    lineCap: 'round'
+  }).addTo(leafletMap);
+
+  // 视野自动包住两个点
+  leafletMap.fitBounds([[A.lat, A.lng], [B.lat, B.lng]], { padding: [40, 40] });
+
+  // 实时计算并展示距离
+  const km = haversineKm(A.lat, A.lng, B.lat, B.lng);
+  $('distanceNum').innerHTML = km.toFixed(1) + '<small>公里</small>';
+  $('distanceTip').textContent = '成都与自贡的直线距离 · 由坐标实时算出';
+
+  // 容器尺寸变化后刷新（从隐藏切到显示时 Leaflet 需要重算尺寸）
+  setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 220);
+}
+
+/* ------------------------------------------------------------
+   14. 随机约定
+   ------------------------------------------------------------ */
+const PROMISES = [
+  '一起去成都的街头走一走，吃一碗你选的红油抄手',
+  '等一场雪，拍一张我们同框的雪景照',
+  '一起去自贡看一次灯会，牵着手从头逛到尾',
+  '找个周末，坐着高铁互相奔赴一次',
+  '一起看一部电影，看到一半睡着也没关系',
+  '在对方生气的时候，先递一杯温水',
+  '一起做一顿饭，难吃也要吃完',
+  '每年拍一张合照，存进同一个相册',
+  '一起去一次海边，把想说的话说给海浪听',
+  '无论多晚，睡前都要说一句「晚安」',
+  '吵架不过夜，谁先低头都算赢',
+  '一起去逛一次书店，各挑一本送给对方',
+  '攒钱去看一次演唱会，站在人群里一起唱',
+  '一起过一次生日，蛋糕上写两个人的名字',
+  '把想念写下来，装进这个只属于我们的空间'
+];
+
+let lastPromiseIndex = -1;
+
+function rollPromise(){
+  // 抽一条与上次不同的（只有一条时不强求）
+  let i = lastPromiseIndex;
+  if (PROMISES.length > 1){
+    while (i === lastPromiseIndex) i = Math.floor(Math.random() * PROMISES.length);
+  } else {
+    i = 0;
+  }
+  lastPromiseIndex = i;
+
+  const el = $('promiseText');
+  el.style.animation = 'none';
+  void el.offsetWidth;                 // 触发重排以重放动画
+  el.textContent = PROMISES[i];
+  el.style.animation = '';
+
+  $('promiseCount').textContent = '第 ' + (i + 1) + ' 条 · 共 ' + PROMISES.length + ' 条';
+}
+</script>
+<script>
+/* ============================================================
+   whwithsxh · 前端逻辑（五）
+   倒计时 / 进入主页 / 事件绑定 / 启动
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   15. 在一起天数倒计时（每秒刷新）
+   ------------------------------------------------------------ */
+function tickCounter(){
+  const now = Date.now();
+  const diff = now - TOGETHER_DATE.getTime();
+
+  // 若还没到「在一起」的日期，倒计时显示为 0，不做负数
+  const total = Math.max(diff, 0);
+  const sec = Math.floor(total / 1000);
+
+  const days = Math.floor(sec / 86400);
+  const hours = Math.floor((sec % 86400) / 3600);
+  const mins = Math.floor((sec % 3600) / 60);
+  const secs = sec % 60;
+
+  $('daysNum').textContent = String(days);
+  $('hoursNum').textContent = pad2(hours);
+  $('minutesNum').textContent = pad2(mins);
+  $('secondsNum').textContent = pad2(secs);
+}
+
+function startCounter(){
+  stopCounter();
+  tickCounter();
+  counterTimer = setInterval(tickCounter, 1000);
+
+  const y = TOGETHER_DATE.getFullYear();
+  const m = pad2(TOGETHER_DATE.getMonth() + 1);
+  const d = pad2(TOGETHER_DATE.getDate());
+  $('sinceText').textContent = '从 ' + y + ' 年 ' + m + ' 月 ' + d + ' 日 开始，每一秒都算数';
+}
+
+function stopCounter(){
+  if (counterTimer){ clearInterval(counterTimer); counterTimer = null; }
+}
+
+/* ------------------------------------------------------------
+   16. 进入主页
+   ------------------------------------------------------------ */
+async function enterApp(){
+  showView('viewHome');
+  startCounter();
+  watchSessionExpiry();
+  // 预取信件，进入列表时更快
+  loadLetters().catch(() => {});
+}
+
+/* ------------------------------------------------------------
+   17. 事件绑定
+   ------------------------------------------------------------ */
+function bindEvents(){
+  /* ---- 登录 ---- */
+  $('loginBtn').addEventListener('click', doLogin);
+  $('loginInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){ e.preventDefault(); doLogin(); }
+  });
+
+  /* ---- 退出 ---- */
+  $('logoutBtn').addEventListener('click', doLogout);
+
+  /* ---- 主页四个入口 ---- */
+  document.querySelectorAll('[data-goto]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.goto;
+      if (target === 'letters'){
+        showView('viewLetters');
+        loadLetters();
+      } else if (target === 'timeline'){
+        showView('viewTimeline');
+        loadTimeline();
+      } else if (target === 'map'){
+        showView('viewMap');
+        initMap();
+      } else if (target === 'promise'){
+        showView('viewPromise');
+        if (!lastPromiseIndex && lastPromiseIndex !== 0) rollPromise();
+      }
+    });
+  });
+
+  /* ---- 返回按钮（无 data-back 时回主页）---- */
+  document.querySelectorAll('[data-back]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const to = btn.dataset.back;
+      if (to === 'letters'){
+        showView('viewLetters');
+        loadLetters();
+      } else {
+        showView('viewHome');
+      }
+    });
+  });
+
+  /* ---- 信件列表 ---- */
+  $('letterList').addEventListener('click', onLetterListClick);
+  $('newLetterBtn').addEventListener('click', () => openLetterSheet(null));
+  $('editLetterBtn').addEventListener('click', () => openLetterSheet(currentLetter));
+  $('deleteLetterBtn').addEventListener('click', deleteCurrentLetter);
+
+  /* ---- 写信抽屉 ---- */
+  $('sheetClose').addEventListener('click', closeLetterSheet);
+  $('sheetMask').addEventListener('click', closeLetterSheet);
+  $('authorWang').addEventListener('click', () => setSheetAuthor('wanghong'));
+  $('authorSong').addEventListener('click', () => setSheetAuthor('songxinghe'));
+  $('saveLetterBtn').addEventListener('click', saveLetter);
+
+  /* ---- 时间线抽屉 ---- */
+  $('newTimelineBtn').addEventListener('click', openTimelineSheet);
+  $('tlSheetClose').addEventListener('click', closeTimelineSheet);
+  $('tlSheetMask').addEventListener('click', closeTimelineSheet);
+  $('saveTimelineBtn').addEventListener('click', saveTimeline);
+
+  /* ---- 随机约定 ---- */
+  $('promiseBtn').addEventListener('click', rollPromise);
+
+  /* ---- ESC 关闭抽屉（桌面端）---- */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('sheet').classList.contains('hidden')) closeLetterSheet();
+    if (!$('tlSheet').classList.contains('hidden')) closeTimelineSheet();
+  });
+
+  /* ---- 窗口尺寸变化：修正 Leaflet 尺寸 ---- */
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (leafletMap) leafletMap.invalidateSize();
+    }, 220);
+  });
+
+  /* ---- 网络恢复提示 ---- */
+  window.addEventListener('online', () => showToast('网络恢复了 ✅'));
+  window.addEventListener('offline', () => showToast('网络断开了，先等等再试'));
+}
+
+/* ------------------------------------------------------------
+   18. 启动
+   ------------------------------------------------------------ */
+async function boot(){
+  const ok = initSupabase();
+  if (!ok) return;
+
+  startHearts();
+  bindEvents();
+
+  const loggedIn = await restoreSession();
+
+  // 隐藏启动遮罩
+  const boot = $('bootLoading');
+  boot.classList.add('hide');
+  setTimeout(() => boot.classList.add('hidden'), 320);
+
+  if (loggedIn){
+    await enterApp();
+  } else {
+    showView('viewLogin');
+    startTypewriter();
+  }
+}
+
+// DOM 就绪后启动
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>
+</body>
+</html>

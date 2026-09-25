@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 移动端重点：禁止缩放，保证 1:1 布局 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#FF6B9D">
+<title>我们的私密空间 · 王鸿 &amp; 宋星禾</title>
+
+<!-- Leaflet 地图样式（OpenStreetMap 免费瓦片） -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+/* ============================================================
+   whwithsxh · 情侣私密纪念页
+   配色：主色渐变 #FF6B9D → #A66BFF
+   结构：登录页 → 主页 → 信件 / 时间线 / 地图 / 约定
+   ============================================================ */
+
+/* ---------- 全局变量 ---------- */
+:root{
+  --pink:#FF6B9D;
+  --purple:#A66BFF;
+  --grad:linear-gradient(135deg,#FF6B9D 0%,#A66BFF 100%);
+  --paper:#FFF8F0;                 /* 信纸米白 */
+  --glass:rgba(255,255,255,0.15);  /* 玻璃拟态卡片 */
+  --glass-border:rgba(255,255,255,0.35);
+  --shadow:0 8px 32px rgba(255,107,157,0.15);
+  --text:#3d2b3d;
+  --text-soft:#7a6a7a;
+  --radius-card:16px;
+  --radius-btn:12px;
+}
+
+/* ---------- 基础重置 ---------- */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+html,body{height:100%;}
+
+body{
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--grad);
+  background-attachment:fixed;
+  color:#fff;
+  overflow-x:hidden;               /* 移动端重点：禁止横向滚动 */
+  -webkit-font-smoothing:antialiased;
+}
+
+/* 输入框统一 16px，防止 iOS 聚焦时自动缩放 */
+input,textarea,select,button{
+  font-family:inherit;
+  font-size:16px;
+}
+
+/* ---------- 通用工具类 ---------- */
+.hidden{display:none !important;}
+
+.view{
+  min-height:100vh;
+  min-height:100dvh;               /* 移动端浏览器动态视口 */
+  position:relative;
+  z-index:1;
+}
+
+/* ============================================================
+   一、登录页
+   ============================================================ */
+#viewLogin{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.login-card{
+  width:100%;
+  max-width:400px;
+  padding:40px 28px 32px;
+  border-radius:24px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);
+  text-align:center;
+  animation:cardIn .7s cubic-bezier(.2,.9,.3,1.2) both;
+}
+
+@keyframes cardIn{
+  from{opacity:0;transform:translateY(28px) scale(.96);}
+  to{opacity:1;transform:none;}
+}
+
+.login-heart{
+  font-size:52px;
+  line-height:1;
+  margin-bottom:10px;
+  animation:beat 1.6s ease-in-out infinite;
+}
+
+@keyframes beat{
+  0%,100%{transform:scale(1);}
+  12%{transform:scale(1.18);}
+  24%{transform:scale(1);}
+  36%{transform:scale(1.12);}
+  48%{transform:scale(1);}
+}
+
+.login-title{
+  font-size:26px;
+  font-weight:700;
+  letter-spacing:2px;
+  margin-bottom:8px;
+  text-shadow:0 2px 12px rgba(0,0,0,.12);
+}
+
+.login-sub{
+  font-size:14px;
+  color:rgba(255,255,255,.85);
+  min-height:22px;                 /* 给打字机留位，避免跳动 */
+  margin-bottom:28px;
+  letter-spacing:1px;
+}
+
+/* 打字机光标 */
+.type-cursor{
+  display:inline-block;
+  width:2px;
+  height:14px;
+  margin-left:2px;
+  vertical-align:-2px;
+  background:rgba(255,255,255,.9);
+  animation:blink 1s steps(1) infinite;
+}
+@keyframes blink{50%{opacity:0;}}
+
+/* 密码输入框：高度 ≥ 48px（移动端要求） */
+.login-input{
+  width:100%;
+  height:52px;
+  padding:0 18px;
+  border-radius:var(--radius-btn);
+  border:1px solid rgba(255,255,255,.45);
+  background:rgba(255,255,255,.95);
+  color:var(--text);
+  outline:none;
+  text-align:center;
+  letter-spacing:4px;
+  transition:box-shadow .2s,border-color .2s;
+}
+.login-input::placeholder{
+  letter-spacing:1px;
+  color:#bfa9bf;
+}
+.login-input:focus{
+  border-color:#fff;
+  box-shadow:0 0 0 4px rgba(255,255,255,.28);
+}
+
+/* 登录按钮：高度 ≥ 44px 触控区 */
+.login-btn{
+  width:100%;
+  height:52px;
+  margin-top:16px;
+  border:none;
+  border-radius:var(--radius-btn);
+  background:#fff;
+  color:#d94f86;
+  font-size:17px;
+  font-weight:700;
+  letter-spacing:3px;
+  cursor:pointer;
+  transition:transform .15s,box-shadow .2s,opacity .2s;
+  box-shadow:0 6px 20px rgba(0,0,0,.12);
+}
+.login-btn:active{transform:scale(.97);}
+.login-btn:disabled{opacity:.7;cursor:default;}
+
+/* 登录失败提示 */
+.login-error{
+  margin-top:14px;
+  min-height:20px;
+  font-size:14px;
+  color:#ffe0e0;
+  text-shadow:0 1px 6px rgba(180,0,0,.35);
+  opacity:0;
+  transition:opacity .25s;
+}
+.login-error.show{opacity:1;}
+
+.login-foot{
+  margin-top:22px;
+  font-size:12px;
+  color:rgba(255,255,255,.6);
+  letter-spacing:1px;
+}
+</style>
