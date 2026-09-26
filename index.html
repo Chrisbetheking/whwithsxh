@@ -419,6 +419,363 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
 
 <style>
 /* ============================================================
+   UI 优化层
+   ------------------------------------------------------------
+   1) 吸顶快捷导航（页面区块多，手机滚动累）
+   2) 阅读进度条
+   3) 回到顶部
+   4) 加载转圈 / 骨架
+   5) 区块进场动画（带兜底）
+   6) 网络状态提示条
+   7) 愿望筛选 / 光标焦点 / 图片失败占位
+   8) 首屏氛围光晕
+   ============================================================ */
+
+/* ---------- 首屏氛围光晕（纯装饰，不挡点击）---------- */
+.hero{position:relative;}
+.hero::before{
+  content:"";
+  position:absolute;
+  top:-70px;left:50%;
+  width:min(380px,92vw);
+  height:340px;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.24),transparent 68%);
+  pointer-events:none;
+  z-index:-1;
+}
+
+/* ---------- 1) 吸顶快捷导航 ---------- */
+.topnav{
+  position:fixed;
+  top:0;left:0;right:0;
+  z-index:120;
+  padding-top:env(safe-area-inset-top);
+  background:rgba(150,70,130,.34);
+  backdrop-filter:blur(18px) saturate(1.5);
+  -webkit-backdrop-filter:blur(18px) saturate(1.5);
+  border-bottom:1px solid rgba(255,255,255,.16);
+  /* 默认收起，向下滚动一段后滑入，首屏保持干净 */
+  transform:translateY(-110%);
+  transition:transform .32s cubic-bezier(.22,.9,.3,1);
+  will-change:transform;
+}
+.topnav.show{transform:translateY(0);}
+
+.topnav-inner{
+  display:flex;
+  gap:7px;
+  padding:9px 12px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;              /* Firefox 隐藏滚动条 */
+}
+.topnav-inner::-webkit-scrollbar{display:none;}   /* Safari/Chrome 隐藏滚动条 */
+
+.tn-item{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  min-height:34px;
+  padding:0 13px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.13);
+  color:#fff;
+  font-size:12.5px;
+  letter-spacing:.5px;
+  text-decoration:none;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background .2s,color .2s,transform .15s;
+}
+.tn-item:active{transform:scale(.95);background:rgba(255,255,255,.28);}
+/* 当前所在区块高亮 */
+.tn-item.active{
+  background:#fff;
+  color:#d94f86;
+  font-weight:700;
+  border-color:transparent;
+  box-shadow:0 4px 14px rgba(0,0,0,.16);
+}
+
+/* ---------- 2) 阅读进度条（导航底部细线）---------- */
+.read-progress{
+  position:absolute;
+  left:0;bottom:-1px;
+  height:2px;
+  width:0%;
+  border-radius:0 2px 2px 0;
+  background:linear-gradient(90deg,#fff,#ffe3ef);
+  transition:width .12s linear;
+}
+
+/* ---------- 3) 回到顶部 ---------- */
+.to-top{
+  position:fixed;
+  right:16px;
+  bottom:calc(24px + env(safe-area-inset-bottom));
+  z-index:110;
+  width:46px;
+  height:46px;
+  border:none;
+  border-radius:50%;
+  background:rgba(255,255,255,.94);
+  color:#d94f86;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 10px 28px rgba(80,20,60,.32);
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(14px) scale(.9);
+  transition:opacity .26s,transform .26s;
+}
+.to-top.show{opacity:1;pointer-events:auto;transform:none;}
+.to-top:active{transform:scale(.92);}
+
+/* ---------- 4) 加载转圈 ---------- */
+.loading-tip{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:28px 18px;
+  font-size:13px;
+  letter-spacing:1px;
+  color:rgba(255,255,255,.78);
+}
+.spin{
+  flex:0 0 auto;
+  width:15px;
+  height:15px;
+  border-radius:50%;
+  border:2px solid rgba(255,255,255,.28);
+  border-top-color:#fff;
+  animation:spin .75s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* 骨架占位（用于卡片类列表）*/
+.skeleton{
+  display:flex;
+  flex-direction:column;
+  gap:11px;
+  padding:16px;
+  border-radius:var(--radius-card);
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.14);
+}
+.sk-line{
+  height:12px;
+  border-radius:7px;
+  background:linear-gradient(90deg,
+    rgba(255,255,255,.12) 25%,
+    rgba(255,255,255,.3) 37%,
+    rgba(255,255,255,.12) 63%);
+  background-size:400% 100%;
+  animation:skShine 1.5s ease infinite;
+}
+@keyframes skShine{
+  0%{background-position:100% 50%;}
+  100%{background-position:0 50%;}
+}
+
+/* ---------- 5) 区块进场动画 ----------
+   .reveal 由 JS 添加（避免 JS 未执行时内容被隐藏） */
+.reveal{
+  opacity:0;
+  transform:translateY(18px);
+  transition:opacity .6s cubic-bezier(.22,.9,.3,1),transform .6s cubic-bezier(.22,.9,.3,1);
+}
+.reveal.in{opacity:1;transform:none;}
+
+/* 锚点跳转时给吸顶导航留出高度 */
+.section{
+  scroll-margin-top:calc(66px + env(safe-area-inset-top));
+}
+
+/* ---------- 6) 网络状态提示条 ---------- */
+.netbar{
+  position:fixed;
+  left:50%;
+  top:calc(env(safe-area-inset-top) + 8px);
+  z-index:150;
+  padding:9px 18px;
+  border-radius:999px;
+  background:rgba(45,15,35,.92);
+  color:#fff;
+  font-size:12.5px;
+  letter-spacing:.5px;
+  white-space:nowrap;
+  box-shadow:0 10px 26px rgba(0,0,0,.3);
+  opacity:0;
+  pointer-events:none;
+  transform:translate(-50%,-140%);
+  transition:transform .3s cubic-bezier(.22,.9,.3,1),opacity .3s;
+}
+.netbar.show{opacity:1;transform:translate(-50%,0);}
+
+/* ---------- 7a) 愿望清单筛选 ---------- */
+.wish-filter{
+  display:flex;
+  gap:8px;
+  margin:0 0 14px;
+}
+.wish-filter button{
+  flex:1;
+  min-height:40px;
+  border-radius:11px;
+  border:1px solid rgba(255,255,255,.24);
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:13px;
+  letter-spacing:.5px;
+  cursor:pointer;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  transition:background .2s,color .2s,transform .15s;
+}
+.wish-filter button:active{transform:scale(.97);}
+.wish-filter button.on{
+  background:#fff;
+  color:#d94f86;
+  font-weight:700;
+  border-color:transparent;
+  box-shadow:0 4px 16px rgba(0,0,0,.14);
+}
+
+/* 筛选后全被过滤掉时的提示 */
+.wish-none{
+  padding:20px 16px;
+  border-radius:var(--radius-card);
+  background:rgba(255,255,255,.1);
+  border:1px dashed rgba(255,255,255,.3);
+  text-align:center;
+  font-size:13px;
+  color:rgba(255,255,255,.8);
+}
+
+/* ---------- 7b) 键盘焦点可见（无障碍）---------- */
+:focus-visible{
+  outline:2px solid rgba(255,255,255,.95);
+  outline-offset:2px;
+}
+.dlg :focus-visible,
+.lightbox :focus-visible{
+  outline-color:#FF6B9D;
+}
+
+/* ---------- 7c) 图片加载失败占位（HEIC 等格式不兼容时）---------- */
+.photo-cell.img-fail{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
+}
+.photo-cell.img-fail::before{
+  content:"图片打不开";
+  font-size:11px;
+  color:rgba(255,255,255,.72);
+  letter-spacing:.5px;
+}
+.photo-cell.img-fail img{display:none;}
+
+/* ---------- 7d) 大图左右翻页按钮 ---------- */
+.lbx-nav{
+  position:fixed;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:210;
+  width:44px;
+  height:44px;
+  border:none;
+  border-radius:50%;
+  background:rgba(255,255,255,.18);
+  color:#fff;
+  font-size:20px;
+  line-height:1;
+  cursor:pointer;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  transition:background .2s,transform .15s;
+}
+.lbx-nav:active{transform:translateY(-50%) scale(.9);background:rgba(255,255,255,.34);}
+.lbx-prev{left:14px;}
+.lbx-next{right:14px;}
+/* 只有一张照片时隐藏翻页按钮 */
+.lbx-nav.only-one{display:none;}
+
+/* 大图计数提示 */
+.lbx-count{
+  position:fixed;
+  top:calc(env(safe-area-inset-top) + 22px);
+  left:50%;
+  transform:translateX(-50%);
+  z-index:210;
+  font-size:12px;
+  letter-spacing:1px;
+  color:rgba(255,255,255,.8);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------- 7e) 页脚导出按钮 ---------- */
+.footer-actions{
+  margin-top:18px;
+  display:flex;
+  justify-content:center;
+}
+.footer-btn{
+  min-height:40px;
+  padding:0 18px;
+  border-radius:11px;
+  border:1px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.12);
+  color:rgba(255,255,255,.92);
+  font-size:12.5px;
+  letter-spacing:1px;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  transition:background .2s,transform .15s;
+}
+.footer-btn:active{transform:scale(.97);background:rgba(255,255,255,.26);}
+
+/* ---------- 桌面端微调 ---------- */
+@media (min-width:768px){
+  /* 桌面屏幕宽，导航项居中更好看 */
+  .topnav-inner{justify-content:center;}
+  /* 桌面端卡片轻微悬浮反馈 */
+  .msg-item:hover,
+  .tl-node:hover,
+  .wish-item:hover{
+    box-shadow:0 8px 26px rgba(80,20,60,.2);
+  }
+  .lbx-nav{width:48px;height:48px;}
+  .lbx-prev{left:24px;}
+  .lbx-next{right:24px;}
+}
+
+/* ---------- 移动端微调 ---------- */
+@media (max-width:480px){
+  .topnav-inner{padding:8px 10px;gap:6px;}
+  .tn-item{min-height:32px;padding:0 11px;font-size:12px;}
+  .to-top{width:42px;height:42px;right:14px;bottom:calc(20px + env(safe-area-inset-bottom));}
+  .netbar{font-size:12px;padding:8px 15px;}
+  .wish-filter button{min-height:38px;font-size:12.5px;}
+  .lbx-nav{
+    width:38px;height:38px;font-size:17px;
+    top:auto;bottom:calc(28px + env(safe-area-inset-bottom));
+    transform:none;
+  }
+  .lbx-nav:active{transform:scale(.9);}
+  .lbx-prev{left:calc(50% - 52px);}
+  .lbx-next{right:calc(50% - 52px);}
+}
+</style>
+<style>
+/* ============================================================
    新增功能区样式（留言板 / 信件 / 照片墙 / 小事记 / 愿望清单）
    ------------------------------------------------------------
    命名沿用现有风格：玻璃拟态卡片 + 圆角 + 柔和阴影
@@ -1278,6 +1635,27 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
 <!-- 爱心飘落层（定位固定，位于内容下层，不阻挡点击） -->
 <div id="heartsLayer" aria-hidden="true"></div>
 
+<!-- ============ 吸顶快捷导航（向下滚动后滑入；点击平滑跳转）============ -->
+<nav id="topnav" class="topnav" aria-label="区块快捷导航">
+  <div class="topnav-inner">
+    <a class="tn-item" href="#sec-distance" data-nav="sec-distance">📍 距离</a>
+    <a class="tn-item" href="#sec-promise"  data-nav="sec-promise">🌙 约定</a>
+    <a class="tn-item" href="#sec-messages" data-nav="sec-messages">💬 留言</a>
+    <a class="tn-item" href="#sec-letters"  data-nav="sec-letters">💌 信件</a>
+    <a class="tn-item" href="#sec-photos"   data-nav="sec-photos">📸 照片</a>
+    <a class="tn-item" href="#sec-timeline" data-nav="sec-timeline">📅 小事记</a>
+    <a class="tn-item" href="#sec-wishlist" data-nav="sec-wishlist">⭐ 愿望</a>
+  </div>
+  <!-- 阅读进度条 -->
+  <div class="read-progress" id="readProgress"></div>
+</nav>
+
+<!-- 网络状态提示条 -->
+<div id="netbar" class="netbar" role="status" aria-live="polite"></div>
+
+<!-- 回到顶部 -->
+<button id="toTop" class="to-top" type="button" aria-label="回到顶部">↑</button>
+
 <div class="page">
 
   <!-- ============ 首屏：名字 + 倒计时 ============ -->
@@ -1300,7 +1678,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </header>
 
   <!-- ============ 地图：成都 ↔ 自贡 ============ -->
-  <section class="section">
+  <section class="section" id="sec-distance">
     <h2 class="section-title">📍 我们的距离</h2>
     <p class="section-sub">成都和自贡之间，是我们想念的路线</p>
 
@@ -1319,7 +1697,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </section>
 
   <!-- ============ 随机约定 ============ -->
-  <section class="section">
+  <section class="section" id="sec-promise">
     <h2 class="section-title">🌙 未来小约定</h2>
     <p class="section-sub">每点一次，就抽一件以后要一起做的事</p>
 
@@ -1332,7 +1710,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </section>
 
   <!-- ============ 💬 留言板 ============ -->
-  <section class="section">
+  <section class="section" id="sec-messages">
     <h2 class="section-title">💬 留言板</h2>
     <p class="section-sub">想说什么就写在这里，对方马上就能看到</p>
 
@@ -1363,7 +1741,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </section>
 
   <!-- ============ 💌 私密信件 ============ -->
-  <section class="section">
+  <section class="section" id="sec-letters">
     <div class="sec-head">
       <h2 class="section-title">💌 私密信件</h2>
       <button id="letterNew" class="btn-mini" type="button">+ 写新信件</button>
@@ -1374,7 +1752,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </section>
 
   <!-- ============ 📸 照片墙 ============ -->
-  <section class="section">
+  <section class="section" id="sec-photos">
     <div class="sec-head">
       <h2 class="section-title">📸 照片墙</h2>
       <button id="photoUpload" class="btn-mini" type="button">+ 上传照片</button>
@@ -1397,9 +1775,10 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </section>
 
   <!-- ============ 📅 我们的小事记 ============ -->
-  <section class="section">
+  <section class="section" id="sec-timeline">
     <div class="sec-head">
       <h2 class="section-title">📅 我们的小事记</h2>
+      <button id="tlSort" class="btn-mini" type="button" title="切换排序">正序</button>
       <button id="tlNew" class="btn-mini" type="button">+ 添加事件</button>
     </div>
     <p class="section-sub">值得记下来的日子</p>
@@ -1408,12 +1787,19 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
   </section>
 
   <!-- ============ ⭐ 愿望清单 ============ -->
-  <section class="section">
+  <section class="section" id="sec-wishlist">
     <div class="sec-head">
       <h2 class="section-title">⭐ 愿望清单</h2>
       <button id="wishNew" class="btn-mini" type="button">+ 添加愿望</button>
     </div>
     <p class="section-sub">想一起做的事，做完了就打个勾</p>
+
+    <!-- 筛选：全部 / 未完成 / 已完成 -->
+    <div class="wish-filter" id="wishFilter">
+      <button type="button" data-filter="all" class="on">全部</button>
+      <button type="button" data-filter="todo">未完成</button>
+      <button type="button" data-filter="done">已完成</button>
+    </div>
 
     <!-- 进度 -->
     <div class="wish-progress">
@@ -1428,6 +1814,10 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
     <div><span class="heart">💗</span></div>
     <div>王鸿 &amp; 宋星禾</div>
     <div>从 2026 年 9 月 7 日开始</div>
+    <!-- 一键导出全部数据（JSON 备份，防止误删）-->
+    <div class="footer-actions">
+      <button id="exportBtn" class="footer-btn" type="button">⬇ 导出我们的数据</button>
+    </div>
   </footer>
 
 </div>
@@ -1579,8 +1969,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px;}
 <!-- 照片大图预览（Lightbox） -->
 <div id="lightbox" class="lightbox" style="display:none" role="dialog" aria-modal="true">
   <button class="lbx-close" id="lightboxClose" type="button" aria-label="关闭">×</button>
+  <div class="lbx-count" id="lbxCount"></div>
   <img id="lightboxImg" alt="">
   <div class="lbx-cap" id="lightboxCap"></div>
+  <!-- 左右翻页（只有一张照片时自动隐藏）-->
+  <button class="lbx-nav lbx-prev" id="lbxPrev" type="button" aria-label="上一张">‹</button>
+  <button class="lbx-nav lbx-next" id="lbxNext" type="button" aria-label="下一张">›</button>
 </div>
 
 <!-- 轻提示 -->
@@ -2065,10 +2459,13 @@ function showToast(msg){
 
 /* ---------- 各区块的「加载中 / 出错 / 空」三态 ---------- */
 
-/** 显示加载中 */
+/** 显示加载中（带转圈动画） */
 function secLoading(elId, text){
   const el = $(elId);
-  if (el) el.innerHTML = '<div class="loading-tip">' + esc(text || '加载中…') + '</div>';
+  if (el){
+    el.innerHTML = '<div class="loading-tip"><span class="spin"></span>' +
+                   esc(text || '加载中…') + '</div>';
+  }
 }
 
 /** 显示错误 + 重试按钮；retryFn 为点重试时执行的函数 */
@@ -2761,26 +3158,59 @@ async function deletePhoto(id){
   }
 }
 
+/** 当前正在看第几张（用于左右翻页） */
+let lbIndex = 0;
+
 /** 打开大图预览（Lightbox） */
 function openLightbox(id){
-  const p = photosData.find(x => x.id === id);
-  if (!p) return;
+  const idx = photosData.findIndex(x => x.id === id);
+  if (idx < 0) return;
 
-  const img = $('lightboxImg');
-  const cap = $('lightboxCap');
   const box = $('lightbox');
-  if (!img || !box) return;
+  if (!box) return;
 
-  img.src = photoUrl(p.storage_path);
-  img.alt = p.caption || '照片';
-  cap.textContent = (p.caption || '') +
-    (p.taken_at ? '（' + fmtDayCN(p.taken_at) + '）' : '') +
-    ' · ' + p.uploader;
+  // 记住位置，之后用左右按钮翻页
+  lbIndex = idx;
+  renderLightbox();
 
   box.style.display = 'flex';
   void box.offsetWidth;
   box.classList.add('show');
   lockScroll(true);
+}
+
+/** 按当前 lbIndex 刷新大图内容（翻页时调用） */
+function renderLightbox(){
+  const p = photosData[lbIndex];
+  if (!p) return;
+
+  const img = $('lightboxImg');
+  const cap = $('lightboxCap');
+  const count = $('lbxCount');
+  const prev = $('lbxPrev');
+  const next = $('lbxNext');
+  if (!img) return;
+
+  img.src = photoUrl(p.storage_path);
+  img.alt = p.caption || '照片';
+  if (cap){
+    cap.textContent = (p.caption || '') +
+      (p.taken_at ? '（' + fmtDayCN(p.taken_at) + '）' : '') +
+      ' · ' + p.uploader;
+  }
+  if (count) count.textContent = (lbIndex + 1) + ' / ' + photosData.length;
+
+  // 只有一张时隐藏翻页按钮
+  const onlyOne = photosData.length <= 1;
+  if (prev) prev.classList.toggle('only-one', onlyOne);
+  if (next) next.classList.toggle('only-one', onlyOne);
+}
+
+/** 上一张 / 下一张（循环）*/
+function lightboxStep(delta){
+  if (photosData.length <= 1) return;
+  lbIndex = (lbIndex + delta + photosData.length) % photosData.length;
+  renderLightbox();
 }
 
 function closeLightbox(){
@@ -2805,6 +3235,7 @@ const TIMELINE_FALLBACK = [
 ];
 
 let tlData = [];
+let tlAsc = true;        // 小事记排序方向：true=正序（早→晚）
 
 /** 读取小事记 */
 async function loadTimeline(){
@@ -2847,7 +3278,15 @@ function renderTimeline(list, isLocal){
     return;
   }
 
-  box.innerHTML = tlData.map(t => '' +
+  // 按日期排序：默认正序（早→晚），点「正序/倒序」按钮切换
+  const sorted = tlData.slice().sort((a, b) => {
+    const da = a.event_date || '';
+    const db = b.event_date || '';
+    return tlAsc ? (da < db ? -1 : da > db ? 1 : 0)
+                 : (da > db ? -1 : da < db ? 1 : 0);
+  });
+
+  box.innerHTML = sorted.map(t => '' +
     '<div class="tl-node' + (isLocal ? ' local-data' : '') + '">' +
       '<div class="tn-head">' +
         '<span class="tn-emoji">' + esc(t.emoji || '💗') + '</span>' +
@@ -2949,6 +3388,7 @@ const WISH_CATS = {
 };
 
 let wishData = [];
+let wishFilter = 'all';      // 愿望筛选：all=全部 / todo=未完成 / done=已完成
 
 /** 读取愿望清单 */
 async function loadWishlist(){
@@ -2981,7 +3421,7 @@ function renderWishlist(){
   const total = wishData.length;
   const done = wishData.filter(w => w.is_done).length;
 
-  // 进度条
+  // 进度条（始终按全部愿望统计，不受筛选影响）
   const numEl = $('wishProgressNum');
   const fillEl = $('wishProgressFill');
   if (numEl) numEl.textContent = done + ' / ' + total;
@@ -2992,12 +3432,26 @@ function renderWishlist(){
     return;
   }
 
+  // 按筛选条件过滤
+  const shown = wishData.filter(w => {
+    if (wishFilter === 'todo') return !w.is_done;
+    if (wishFilter === 'done') return w.is_done;
+    return true;
+  });
+
+  if (!shown.length){
+    box.innerHTML = '<div class="wish-none">' +
+      (wishFilter === 'done' ? '还没有完成任何愿望，一起加油呀～' : '太棒了，所有愿望都完成了！🎉') +
+      '</div>';
+    return;
+  }
+
   // 按固定顺序分组，空分组不显示
   const order = ['travel', 'food', 'movie', 'experience', 'other'];
   let html = '';
 
   order.forEach(cat => {
-    const items = wishData.filter(w => (w.category || 'other') === cat);
+    const items = shown.filter(w => (w.category || 'other') === cat);
     if (!items.length) return;
 
     const catInfo = WISH_CATS[cat] || WISH_CATS.other;
@@ -3122,6 +3576,344 @@ async function deleteWish(id){
   }
 }
 /* ============================================================
+   UI 交互逻辑
+   ------------------------------------------------------------
+   1) 吸顶导航：滚动后滑入 + 高亮当前区块（几何计算，不依赖观察器）+ 平滑跳转
+   2) 阅读进度条
+   3) 回到顶部按钮
+   4) 区块进场动画（带兜底，JS 失效也不影响阅读）
+   5) 网络状态提示 + 断网恢复自动重连
+   6) 愿望筛选 / 小事记排序 / 大图翻页 的事件绑定
+   7) 一键导出数据（JSON 备份）
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1) 吸顶导航 + 2) 阅读进度条 + 3) 回到顶部
+   ------------------------------------------------------------
+   一次 scroll 监听处理三件事，用 rAF 节流，手机上更省电
+   ------------------------------------------------------------ */
+function initScrollUI(){
+  const nav = $('topnav');
+  const progress = $('readProgress');
+  const toTop = $('toTop');
+  if (!nav) return;
+
+  const navItems = Array.from(nav.querySelectorAll('[data-nav]'));
+  const sections = navItems.map(a => ({ link: a, el: $(a.dataset.nav) })).filter(x => x.el);
+  let ticking = false;
+  let activeId = '';
+
+  function update(){
+    const y = window.scrollY || document.documentElement.scrollTop;
+
+    // (1) 向下滚动超过 260px 才显示导航（首屏保持干净）
+    nav.classList.toggle('show', y > 260);
+    if (toTop) toTop.classList.toggle('show', y > 600);
+
+    // (2) 阅读进度
+    if (progress){
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = max > 0 ? Math.min(100, (y / max) * 100) : 0;
+      progress.style.width = pct.toFixed(1) + '%';
+    }
+
+    // (3) 高亮当前区块
+    //     用几何位置算而不是观察器：观察器在标签页被节流时不回调，
+    //     算位置则任何情况都准确，而且和滚动共用同一次计算，更省电。
+    if (sections.length){
+      // 判定线放在视口 1/3 处：屏幕主要内容属于哪个区块，就高亮哪个
+      // （用导航高度会导致高亮滞后一个区块，阅读时感觉不对）
+      const line = y + Math.max(120, window.innerHeight * 0.33);
+      let current = '';
+      for (const item of sections){
+        const top = item.el.getBoundingClientRect().top + y;
+        if (top <= line) current = item.el.id;
+      }
+      if (!current && sections.length) current = sections[0].el.id;
+
+      // 边界修正：已经滚到最底部时，屏幕显示的是最后一个区块，
+      // 但判定线可能还没越过它的顶部 —— 直接高亮最后一项
+      const atBottom = (y + window.innerHeight) >= (document.documentElement.scrollHeight - 8);
+      if (atBottom && sections.length) current = sections[sections.length - 1].el.id;
+
+      if (current !== activeId){
+        activeId = current;
+        navItems.forEach(a => a.classList.toggle('active', a.dataset.nav === current));
+        // 让高亮项滚进导航可视区域（导航条可横向滚动）
+        const active = navItems.find(a => a.dataset.nav === current);
+        if (active && active.scrollIntoView){
+          active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+        }
+      }
+    }
+  }
+
+  // 滚动处理：rAF 优先（流畅）+ 120ms 兜底（个别环境 rAF 被节流时不至于不更新）
+  function onScroll(){
+    if (ticking) return;
+    ticking = true;
+    const run = () => { ticking = false; update(); };
+    if (window.requestAnimationFrame) requestAnimationFrame(run);
+    setTimeout(() => { if (ticking) run(); }, 120);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  update();                            // 首屏（含刷新后停在中间的情况）
+
+  // 回到顶部
+  if (toTop){
+    toTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  // 导航点击：平滑滚动到对应区块（用 JS 而不是 CSS，保证偏移量准确）
+  const inner = nav.querySelector('.topnav-inner');
+  if (inner){
+    inner.addEventListener('click', (e) => {
+      const link = e.target.closest('[data-nav]');
+      if (!link) return;
+      e.preventDefault();
+      const target = $(link.dataset.nav);
+      if (target){
+        const offset = (nav.offsetHeight || 52) + 10;   // 减掉导航自身高度，标题不被挡
+        const top = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      }
+    });
+  }
+}
+
+/* ------------------------------------------------------------
+   4) 区块进场动画
+   ------------------------------------------------------------
+   关键：.reveal 这个类由 JS 添加。
+   这样即便 JS 出错没执行，内容也不会被 CSS 藏住（保证可读性）。
+   ------------------------------------------------------------ */
+function initReveal(){
+  const targets = document.querySelectorAll('.section, .footer');
+  if (!targets.length) return;
+
+  // 尊重系统「减少动态效果」偏好
+  const reduce = window.matchMedia &&
+                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (reduce || !('IntersectionObserver' in window)){
+    return;                              // 不做动画，直接显示
+  }
+
+  targets.forEach(el => el.classList.add('reveal'));
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting){
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -12% 0px', threshold: 0.04 });
+
+  targets.forEach(el => io.observe(el));
+
+  // 兜底：4 秒后仍未显示的（比如观察器不回调）直接显示
+  setTimeout(() => {
+    document.querySelectorAll('.reveal:not(.in)').forEach(el => el.classList.add('in'));
+  }, 4000);
+}
+
+/* ------------------------------------------------------------
+   5) 网络状态提示 + 断网恢复自动重连
+   ------------------------------------------------------------ */
+function initNetStatus(){
+  const bar = $('netbar');
+
+  function showBar(text, autoHideMs){
+    if (!bar) return;
+    bar.textContent = text;
+    bar.classList.add('show');
+    clearTimeout(bar._t);
+    if (autoHideMs){
+      bar._t = setTimeout(() => bar.classList.remove('show'), autoHideMs);
+    }
+  }
+
+  function hideBar(){
+    if (bar) bar.classList.remove('show');
+  }
+
+  // 进入页面时若已离线
+  if (!navigator.onLine){
+    showBar('当前没有网络，部分内容可能加载不出来');
+  }
+
+  window.addEventListener('offline', () => {
+    showBar('网络断开了，正在用本地数据撑住');
+  });
+
+  window.addEventListener('online', () => {
+    showBar('网络恢复了，正在重新加载…');
+    // 自动重连：把云端数据重新拉一遍（失败的会自动覆盖错误提示）
+    if (typeof supaReady !== 'undefined' && supaReady){
+      try {
+        loadMessages();
+        loadLetters();
+        loadPhotos();
+        loadTimeline();
+        loadWishlist();
+      } catch (e) { /* 忽略 */ }
+    } else if (typeof initSupabaseClient === 'function'){
+      // 首次进入时 SDK 没加载成功，恢复网络后重试一次
+      if (initSupabaseClient()){
+        bindFeatureEvents();      // 幂等，重复调用安全
+        loadMessages();
+        loadLetters();
+        loadPhotos();
+        loadTimeline();
+        loadWishlist();
+        subscribeMessages();
+      }
+    }
+    setTimeout(hideBar, 2200);
+  });
+}
+
+/* ------------------------------------------------------------
+   6) 各功能的事件绑定（筛选 / 排序 / 翻页 / 导出）
+   ------------------------------------------------------------ */
+
+/** 愿望清单筛选 */
+function initWishFilter(){
+  const row = $('wishFilter');
+  if (!row) return;
+  row.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-filter]');
+    if (!btn) return;
+    row.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    wishFilter = btn.dataset.filter;
+    renderWishlist();
+  });
+}
+
+/** 小事记排序切换 */
+function initTimelineSort(){
+  const btn = $('tlSort');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    tlAsc = !tlAsc;
+    btn.textContent = tlAsc ? '正序' : '倒序';
+    // 用当前数据重绘（不重新请求）
+    const isLocal = !!document.querySelector('.tl-node.local-data');
+    renderTimeline(tlData, isLocal);
+    showToast(tlAsc ? '按时间正序' : '按时间倒序');
+  });
+}
+
+/** 大图左右翻页（按钮 + 键盘方向键 + 触摸滑动） */
+function initLightboxNav(){
+  const prev = $('lbxPrev');
+  const next = $('lbxNext');
+  if (prev) prev.addEventListener('click', (e) => { e.stopPropagation(); lightboxStep(-1); });
+  if (next) next.addEventListener('click', (e) => { e.stopPropagation(); lightboxStep(1); });
+
+  // 键盘左右键
+  document.addEventListener('keydown', (e) => {
+    const box = $('lightbox');
+    if (!box || !box.classList.contains('show')) return;
+    if (e.key === 'ArrowLeft') lightboxStep(-1);
+    if (e.key === 'ArrowRight') lightboxStep(1);
+  });
+
+  // 触摸滑动（手机上左右划）
+  const box = $('lightbox');
+  if (box){
+    let startX = 0, startY = 0;
+    box.addEventListener('touchstart', (e) => {
+      const t = e.changedTouches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+    }, { passive: true });
+
+    box.addEventListener('touchend', (e) => {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      // 横向位移足够大、且明显大于纵向（避免和纵向滚动冲突）
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4){
+        lightboxStep(dx < 0 ? 1 : -1);       // 左划看下一张
+      }
+    }, { passive: true });
+  }
+}
+
+/** 一键导出全部数据（JSON 备份，防止误删） */
+async function exportAllData(){
+  const btn = $('exportBtn');
+  if (!supaReady){
+    showToast('现在连不上云端，等网络好点再导出');
+    return;
+  }
+
+  const oldText = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = '正在导出…'; }
+
+  try {
+    // 五张表并行拉取
+    const [msgs, lets, phos, tls, wish] = await Promise.all([
+      withTimeout(supa.from('messages').select('*').order('created_at', { ascending: true }), 20000),
+      withTimeout(supa.from('letters').select('*').order('created_at', { ascending: true }), 20000),
+      withTimeout(supa.from('photos').select('*').order('created_at', { ascending: true }), 20000),
+      withTimeout(supa.from('timeline').select('*').order('event_date', { ascending: true }), 20000),
+      withTimeout(supa.from('wishlist').select('*').order('created_at', { ascending: true }), 20000)
+    ]);
+
+    const payload = {
+      导出时间: new Date().toISOString(),
+      导出说明: 'whwithsxh 数据备份。照片的图片文件存放在 Supabase Storage 的 photos bucket，此处只导出记录。',
+      留言板: (msgs && msgs.data) || [],
+      私密信件: (lets && lets.data) || [],
+      照片墙: (phos && phos.data) || [],
+      我们的小事记: (tls && tls.data) || [],
+      愿望清单: (wish && wish.data) || []
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const d = new Date();
+    a.href = url;
+    a.download = 'whwithsxh备份-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    const n = payload.留言板.length + payload.私密信件.length +
+              payload.照片墙.length + payload.我们的小事记.length + payload.愿望清单.length;
+    showToast('已导出 ' + n + ' 条记录 ⬇');
+  } catch (e){
+    showToast('导出失败，检查网络后重试');
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = oldText; }
+  }
+}
+
+/* ------------------------------------------------------------
+   7) 初始化全部 UI 逻辑（由 bootSite 调用）
+   ------------------------------------------------------------ */
+function initUI(){
+  initScrollUI();
+  initReveal();
+  initNetStatus();
+  initWishFilter();
+  initTimelineSort();
+  initLightboxNav();
+
+  const exp = $('exportBtn');
+  if (exp) exp.addEventListener('click', exportAllData);
+}
+/* ============================================================
    13. 事件绑定 + 启动流程
    ------------------------------------------------------------
    所有事件都用「事件委托」绑在容器上：
@@ -3129,7 +3921,13 @@ async function deleteWish(id){
    · 代码更少、不容易漏
    ============================================================ */
 
+/* 事件只绑一次（断网恢复时可能被再次调用，重复绑定会导致一次点击触发两次） */
+let featureEventsBound = false;
+
 function bindFeatureEvents(){
+  if (featureEventsBound) return;      // 已绑过，直接跳过
+  featureEventsBound = true;
+
   /* ---------- 留言板 ---------- */
   const msgSend = $('msgSend');
   if (msgSend) msgSend.addEventListener('click', sendMessage);
@@ -3214,6 +4012,16 @@ function bindFeatureEvents(){
   // 照片网格：点图放大 / 删除（事件委托）
   const photoGrid = $('photoGrid');
   if (photoGrid){
+    // 图片加载失败时（HEIC 等格式不兼容）显示占位文字
+    // error 事件不冒泡，必须用捕获阶段监听
+    photoGrid.addEventListener('error', (e) => {
+      const img = e.target;
+      if (img && img.tagName === 'IMG'){
+        const cell = img.closest('.photo-cell');
+        if (cell) cell.classList.add('img-fail');
+      }
+    }, true);
+
     photoGrid.addEventListener('click', (e) => {
       const del = e.target.closest('[data-photo-del]');
       if (del){
@@ -3325,6 +4133,7 @@ function bootSite(){
 
   /* ---- 新功能（五个区块）---- */
   bindFeatureEvents();
+  initUI();                            // UI 交互层（导航/进度条/动画/网络提示/筛选/导出）
 
   const ok = initSupabaseClient();
 
