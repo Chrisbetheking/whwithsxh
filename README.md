@@ -1,9 +1,10 @@
 # 王鸿 & 宋星禾 · 我们的小宇宙 💗
 
-一个纯前端的纪念网页。**没有任何后端、不需要登录、不需要数据库**——双击 `index.html` 就能打开，也可以直接部署到 GitHub Pages。
+一个双人纪念 + 互动网页。倒计时、地图、约定是纯前端展示；留言板、信件、照片墙、小事记、愿望清单由 Supabase 提供数据存储与实时同步。
 
 - **线上地址**：https://chrisbetheking.github.io/whwithsxh/
-- **技术栈**：HTML5 + CSS3 + 原生 JavaScript（单文件） / Leaflet + OpenStreetMap（地图） / GitHub Pages（部署）
+- **Supabase 项目**：whwithsxh（ref `pguzkbjhsnszeccprxdx`）
+- **技术栈**：HTML5 + CSS3 + 原生 JavaScript（单文件） / Supabase（数据 + Realtime + Storage） / Leaflet + OpenStreetMap（地图） / GitHub Pages（部署）
 
 ---
 
@@ -11,125 +12,191 @@
 
 ```
 whwithsxh/
-├── index.html    # 全部内容都在这一个文件里（内联 CSS 和 JS）
+├── index.html    # 全部内容（内联 CSS 和 JS）
 ├── README.md     # 本文件
-└── deploy.sh     # 一键推送脚本
+├── deploy.sh     # 一键推送脚本
+└── _parts/       # 开发用分块源文件（本地保留，不入库）
 ```
-
-就这些。没有配置文件、没有环境变量、没有密钥。
 
 ---
 
-## 页面有什么
+## 页面结构（自上而下）
 
-| 区块 | 说明 |
+| # | 区块 | 数据来源 |
+|---|---|---|
+| ① | Hero 首屏（名字 + 打字机 + 在一起倒计时） | 本地 |
+| ② | 📍 我们的距离（地图 + 直线距离） | 本地（Leaflet + OSM） |
+| ③ | 🌙 未来小约定（随机抽一条） | 本地 |
+| ④ | 💬 留言板 | Supabase `messages` + Realtime |
+| ⑤ | 💌 私密信件 | Supabase `letters` |
+| ⑥ | 📸 照片墙 | Supabase `photos` + Storage |
+| ⑦ | 📅 我们的小事记 | Supabase `timeline`（断网降级本地） |
+| ⑧ | ⭐ 愿望清单 | Supabase `wishlist` |
+| ⑨ | 页脚 | 本地 |
+
+---
+
+## Supabase 配置区位置
+
+在 `index.html` 的 JS 开头（搜索 `SUPABASE 配置区`），大概在文件第 1600 行附近：
+
+```js
+/* ⚙️ SUPABASE 配置区（要换项目 / 换 key，只改这两行） */
+const SUPABASE_URL = 'https://pguzkbjhsnszeccprxdx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_8yGJYAW0E9INtDFT9aK81g_RPuWJ8jJ';
+```
+
+**⚠️ 只能用 anon / publishable key**，绝对不要用 service_role key —— 网页是公开的，放进去等于把数据库管理权限公开。
+
+**去哪里找**：Supabase 控制台 → 项目 → Settings → API。
+
+---
+
+## 数据库结构
+
+五张表，全部启用 RLS，策略为「anon + authenticated 可读写」（私密网站不做登录，靠网址保密）。
+
+### `messages` 留言板
+
+| 字段 | 类型 | 约束 |
+|---|---|---|
+| id | uuid | 主键 |
+| created_at | timestamptz | 默认 now() |
+| author | text | `王鸿` 或 `宋星禾` |
+| content | text | 最长 500 字 |
+| mood | text | happy/love/miss/sad/neutral |
+
+### `letters` 私密信件
+
+| 字段 | 类型 | 约束 |
+|---|---|---|
+| id | uuid | 主键 |
+| created_at | timestamptz | 默认 now() |
+| author | text | `王鸿` 或 `宋星禾` |
+| title | text | 最长 100 字 |
+| content | text | 最长 5000 字 |
+| is_read | boolean | 默认 false |
+| read_at | timestamptz | 打开时写入 |
+
+### `photos` 照片墙
+
+| 字段 | 类型 | 约束 |
+|---|---|---|
+| id | uuid | 主键 |
+| created_at | timestamptz | 默认 now() |
+| uploader | text | `王鸿` 或 `宋星禾` |
+| caption | text | 最长 200 字 |
+| storage_path | text | Storage 里的文件路径 |
+| taken_at | date | 拍摄日期（可空） |
+
+图片文件存在 Storage 的 **photos** bucket（public，单文件上限 10MB）。
+
+### `timeline` 我们的小事记
+
+| 字段 | 类型 | 约束 |
+|---|---|---|
+| id | uuid | 主键 |
+| created_at | timestamptz | 默认 now() |
+| event_date | date | 事件日期 |
+| title | text | 最长 100 字 |
+| description | text | 最长 500 字 |
+| emoji | text | 默认 💗 |
+
+### `wishlist` 愿望清单
+
+| 字段 | 类型 | 约束 |
+|---|---|---|
+| id | uuid | 主键 |
+| created_at | timestamptz | 默认 now() |
+| title | text | 最长 200 字 |
+| category | text | travel/food/movie/experience/other |
+| is_done | boolean | 默认 false |
+| done_at | timestamptz | 完成时写入 |
+| created_by | text | `王鸿` 或 `宋星禾` |
+
+---
+
+## 怎么修改每条数据
+
+**方式一：直接在网页上操作（推荐）**
+
+| 数据 | 怎么改 |
 |---|---|
-| 在一起倒计时 | 大号天数 + 时/分/秒，每秒刷新（精确到秒） |
-| 地图 | Leaflet 标记成都、自贡，虚线相连，Haversine 公式**实时计算**直线距离（当前约 153 公里） |
-| 未来小约定 | 内置 15 条，随机抽取，点「换一个」刷新 |
-| 氛围 | 爱心飘落（requestAnimationFrame）、打字机副标题、星星闪烁 |
+| 留言 | 底部输入框写内容 → 选作者和表情 → 点「发送」；点每条右上角 ✕ 删除 |
+| 信件 | 点「+ 写新信件」→ 选作者、填标题正文 → 保存；点标题条展开阅读（自动标记已读）；展开后底部「删除」 |
+| 照片 | 点「+ 上传照片」→ 选图 → 填配文和日期 → 点「上传」；点图放大看；右上角 ✕ 删除 |
+| 小事记 | 点「+ 添加事件」→ 选日期、填标题、选图标 → 保存；每条右侧 ✕ 删除 |
+| 愿望 | 点「+ 添加愿望」→ 填内容、选分类 → 保存；点左侧方框打勾标记完成；✕ 删除 |
 
-**移动端优化**：无横向滚动、按钮触控区 ≥ 44px、输入框 16px 防缩放、刘海屏安全区适配、粒子数自动降到 12 个（手机更流畅）、切后台自动暂停动画省电。
+**方式二：Supabase 控制台**
 
----
+Table Editor → 选表 → 直接编辑行（改文字、改作者名等）。
 
-## 怎么改内容
+**方式三：改页面固定文案（写死的部分）**
 
-所有可改的东西都在 `index.html` 里，往下搜索这几个关键词即可。
+在 `index.html` 里搜索：
 
-### 1. 改在一起的日子
-
-搜索 `TOGETHER_DATE`：
-
-```js
-const TOGETHER_DATE = new Date('2026-09-07T00:00:00+08:00');
-```
-
-改成你们的日期（保持 `+08:00` 时区后缀，这样在任何设备上计算结果都一致）。
-
-### 2. 改城市坐标
-
-搜索 `PEOPLE`：
-
-```js
-const PEOPLE = {
-  wanghong:   { name: '王鸿',   city: '成都', lat: 30.5728, lng: 104.0668 },
-  songxinghe: { name: '宋星禾', city: '自贡', lat: 29.3392, lng: 104.7784 }
-};
-```
-
-距离是用这两个坐标**实时算出来的**，不是写死的数字——改坐标，地图和距离会自动跟着变。
-
-> 想查某个城市的坐标：打开 Google 地图或高德地图，右键点目标位置，复制经纬度即可。
-
-### 3. 改未来小约定
-
-搜索 `PROMISES`，数组里每一行就是一条，随便加、随便删：
-
-```js
-const PROMISES = [
-  '一起去成都的街头走一走，吃一碗你选的红油抄手',
-  '等一场雪，拍一张我们同框的雪景照',
-  // ……想加就在这下面加一行
-];
-```
-
-条数不用改，页面底部的"共 X 条"会自动更新。
-
-### 4. 改打字机句子 / 页脚文字
-
-- 打字机：搜索 `HERO_TEXTS`
-- 页脚：搜索 `<footer class="footer">`
+| 想改什么 | 搜索 |
+|---|---|
+| 在一起的日期 | `TOGETHER_DATE` |
+| 城市坐标 | `PEOPLE` |
+| 随机约定文案 | `PROMISES` |
+| 打字机句子 | `HERO_TEXTS` |
+| 小事记离线兜底数据 | `TIMELINE_FALLBACK` |
+| Supabase 地址/密钥 | `SUPABASE 配置区` |
 
 ---
 
-## 怎么部署（改完内容后）
+## 断网降级逻辑
 
-### 方式 A：本地双击预览
+| 区块 | 断网时表现 |
+|---|---|
+| 小事记 | ✅ **显示本地兜底数据**（`TIMELINE_FALLBACK`），每条右上角标注「离线数据」，隐藏删除按钮 |
+| 留言板 / 信件 / 照片墙 / 愿望清单 | ⚠️ 显示「加载失败 + 重试按钮」，点重试可重新拉取 |
+| 倒计时 / 打字机 / 约定 / 地图（已缓存） | ✅ 不受影响，照常工作 |
+| Supabase SDK 未加载 | ⚠️ 四个云端区块显示「云端组件没加载出来」，小事记仍用本地数据 |
 
-直接双击 `index.html` 就能在浏览器里看效果（地图需要联网加载瓦片）。
+所有请求都有 **8 秒超时**（上传 60 秒），网络卡住时快速失败而不是一直转圈。
 
-### 方式 B：推到 GitHub Pages
+---
+
+## 部署
 
 ```bash
 cd whwithsxh
 git add -A
-git commit -m "更新内容"
-./deploy.sh          # 一键推送
+git commit -m "更新"
+./deploy.sh
 ```
 
-推送后等 1-2 分钟，访问 https://chrisbetheking.github.io/whwithsxh/ 即可看到最新版。
+等 1-2 分钟，访问 https://chrisbetheking.github.io/whwithsxh/ 即可。
 
-### 首次开启 Pages（只需做一次，已完成）
-
-仓库 → **Settings** → 左侧 **Pages** → Source 选 `Deploy from a branch` → Branch 选 `main`、目录选 `/ (root)` → Save。
+Pages 配置（已完成）：Settings → Pages → Source `Deploy from a branch` → Branch `main` → `/ (root)`。
 
 ---
 
 ## 常见问题
 
-**Q：手机上打开一直转圈 / 地图空白？**
-页面需要从 CDN 加载 Leaflet（地图库）。网络不好时会慢，刷新重试即可。其余内容（倒计时、约定）不依赖网络。
+**Q：为什么不用登录，谁打开都能改？**
+按需求设计成"私密网站不做登录"，靠网址保密。**风险**：知道网址的人可以读写所有内容（数据库 RLS 策略是"允许所有人读写"）。如果以后需要真正的隐私，需要加认证。
 
-**Q：为什么打开就能看，没有密码？**
-按需求去掉了登录。**注意：GitHub Pages 是公开站点，任何人拿到网址都能看到页面内容。** 所以这里只放纪念性内容（日期、城市、约定），不放私人信件。
+**Q：照片上传失败？**
+检查：① 图片格式（支持 JPG/PNG/WebP/GIF/HEIC）② 大小不超过 10MB ③ 网络正常。
+
+**Q：留言的"实时"是怎么实现的？**
+用 Supabase Realtime 订阅 `messages` 表的 INSERT 事件。两台设备同时打开页面时，一方发送，另一方无需刷新即可看到（已实测验证）。
 
 **Q：地图上的距离准吗？**
-是两点之间的**球面直线距离**（Haversine 公式），不是实际路程。成都到自贡直线约 153 公里，实际乘车里程会更长。
+是两点之间的球面直线距离（Haversine 公式），成都到自贡约 153 公里。实际乘车里程会更长。
 
-**Q：换一对情侣能用吗？**
-能。改 `TOGETHER_DATE`、`PEOPLE`、`PROMISES`、页脚名字，再换掉 `<title>` 和首屏 `<h1>` 里的名字即可。
+**Q：手机能用吗？**
+可以，已做移动端适配：照片墙 2 列、输入框 16px 防缩放、对话框从底部滑出、无横向滚动。
 
 ---
 
 ## 隐私提醒 ⚠️
 
-- 本站**无登录、无加密**，所有内容都是公开的，任何人打开网页（或查看网页源代码）都能看到。
-- 因此**不要**把信件、聊天记录、身份证号、住址等私人信息写进这个页面。
-- 如果以后想放私人内容，需要重新引入后端和登录，或者采用本地加密方案。
-
----
-
-## 后续想恢复云端功能？
-
-之前搭好的 Supabase 项目（两张表 + 两个账号）已按你的要求**保留未动**，如果以后想重新加回「写信 / 时间线」，可以直接复用，不必重做。
+- 本站**无登录、无加密**，任何拿到网址的人都能查看和修改内容。
+- 数据库策略是"允许所有人读写"，所以**不要放**身份证号、住址、银行卡等敏感信息。
+- 照片存在 public bucket 里，拿到 URL 的人可以直接访问图片。
+- 如果以后需要真隐私：加 Supabase Auth 登录 + 收紧 RLS 策略（只允许特定用户读写）。
